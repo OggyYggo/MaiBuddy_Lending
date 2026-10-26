@@ -38,12 +38,12 @@ export function generateSchedule(input: GenerateScheduleInput): ScheduleItem[] {
     schedule.push({
       installmentNo: i + 1,
       dueDate,
-      principalDue: principalDue.round(2),
-      interestDue: interest.round(2),
-      totalDue: totalDue.round(2),
+      principalDue: principalDue.toDecimalPlaces(2),
+      interestDue: interest.toDecimalPlaces(2),
+      totalDue: totalDue.toDecimalPlaces(2),
       principalPaid: new Decimal(0),
       interestPaid: new Decimal(0),
-      balanceAfter: balance.sub(principalDue).round(2),
+      balanceAfter: balance.sub(principalDue).toDecimalPlaces(2),
       status: "PENDING",
     })
 
@@ -55,7 +55,7 @@ export function generateSchedule(input: GenerateScheduleInput): ScheduleItem[] {
 
 export function accrueInterest(loan: LoanState, asOf: Date): Decimal {
   const interest = loan.rate.mul(loan.balance)
-  return interest.round(2)
+  return interest.toDecimalPlaces(2)
 }
 
 export function allocatePayment(
@@ -111,7 +111,7 @@ export function allocatePayment(
 
 export function payoffQuote(loan: LoanState, asOf: Date): Decimal {
   const interest = accrueInterest(loan, asOf)
-  return loan.balance.add(interest).add(loan.penalties).round(2)
+  return loan.balance.add(interest).add(loan.penalties).toDecimalPlaces(2)
 }
 
 export function regenerateSchedule(loan: LoanState, fromDate: Date): ScheduleItem[] {
@@ -140,10 +140,10 @@ export function regenerateSchedule(loan: LoanState, fromDate: Date): ScheduleIte
 
     schedule[i] = {
       ...item,
-      principalDue: principalDue.round(2),
-      interestDue: interest.round(2),
-      totalDue: totalDue.round(2),
-      balanceAfter: balance.sub(principalDue).round(2),
+      principalDue: principalDue.toDecimalPlaces(2),
+      interestDue: interest.toDecimalPlaces(2),
+      totalDue: totalDue.toDecimalPlaces(2),
+      balanceAfter: balance.sub(principalDue).toDecimalPlaces(2),
     }
 
     balance = balance.sub(principalDue)

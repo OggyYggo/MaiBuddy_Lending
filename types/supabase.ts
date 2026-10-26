@@ -134,6 +134,38 @@ export interface Database {
           updated_at?: string
         }
       }
+      documents: {
+        Row: {
+          id: string
+          borrower_id: string | null
+          application_id: string | null
+          type: string
+          storage_path: string
+          verified_by: string | null
+          verified_at: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          borrower_id?: string | null
+          application_id?: string | null
+          type: string
+          storage_path: string
+          verified_by?: string | null
+          verified_at?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          borrower_id?: string | null
+          application_id?: string | null
+          type?: string
+          storage_path?: string
+          verified_by?: string | null
+          verified_at?: string | null
+          created_at?: string
+        }
+      }
       applications: {
         Row: {
           id: string
@@ -362,6 +394,32 @@ export interface Database {
           reason?: string | null
           waived_by?: string | null
           waived_at?: string | null
+          created_at?: string
+        }
+      }
+      collection_notes: {
+        Row: {
+          id: string
+          loan_id: string
+          note: string
+          promise_date: string | null
+          created_by: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          loan_id: string
+          note: string
+          promise_date?: string | null
+          created_by?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          loan_id?: string
+          note?: string
+          promise_date?: string | null
+          created_by?: string | null
           created_at?: string
         }
       }

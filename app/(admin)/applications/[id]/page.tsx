@@ -148,7 +148,7 @@ export default function ApplicationDetailPage() {
     }
 
     if (decision === 'approved') {
-      const { data: { data: settings } } = await supabase
+      const { data: settings } = await supabase
         .from('settings')
         .select('value')
         .eq('key', 'monthly_rate')
