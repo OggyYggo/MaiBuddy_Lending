@@ -18,6 +18,7 @@ export default function CollectionsPage() {
   const [selectedLoan, setSelectedLoan] = useState<OverdueLoan | null>(null)
   const [collectionNotes, setCollectionNotes] = useState<CollectionNote[]>([])
   const [showNotes, setShowNotes] = useState(false)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
@@ -75,28 +76,68 @@ export default function CollectionsPage() {
 
   const handleAddNote = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!selectedLoan) return
 
     const { data: { user } } = await supabase.auth.getUser()
 
-    const { error } = await supabase.from('collection_notes').insert({
-      loan_id: selectedLoan?.id,
-      note: newNote.note,
-      promise_date: newNote.promise_date || null,
-      created_by: user?.id,
-    })
+    const result = editingNoteId
+      ? await supabase
+          .from('collection_notes')
+          .update({ note: newNote.note, promise_date: newNote.promise_date || null })
+          .eq('id', editingNoteId)
+          .eq('loan_id', selectedLoan.id)
+      : await supabase.from('collection_notes').insert({
+          loan_id: selectedLoan.id,
+          note: newNote.note,
+          promise_date: newNote.promise_date || null,
+          created_by: user?.id,
+        })
+    const { error } = result
 
     if (error) {
-      console.error('Error adding collection note:', error)
-      alert('Failed to add note')
+      console.error('Error saving collection note:', error)
+      alert(`Failed to ${editingNoteId ? 'update' : 'add'} note: ${error.message}`)
     } else {
+      setEditingNoteId(null)
       setNewNote({ note: '', promise_date: '' })
-      fetchCollectionNotes(selectedLoan?.id || '')
+      fetchCollectionNotes(selectedLoan.id)
     }
+  }
+
+  const handleEditNote = (note: CollectionNote) => {
+    setEditingNoteId(note.id)
+    setNewNote({ note: note.note, promise_date: note.promise_date || '' })
+  }
+
+  const handleDeleteNote = async (note: CollectionNote) => {
+    if (!window.confirm('Delete this collection note?')) return
+
+    const { data, error } = await supabase
+      .from('collection_notes')
+      .delete()
+      .eq('id', note.id)
+      .select('id')
+    if (error) {
+      console.error('Error deleting collection note:', error)
+      alert(`Could not delete note: ${error.message}`)
+      return
+    }
+    if (!data?.length) {
+      alert('No note was deleted. Apply the admin record-management SQL migration in Supabase to enable deletes.')
+      return
+    }
+    if (editingNoteId === note.id) {
+      setEditingNoteId(null)
+      setNewNote({ note: '', promise_date: '' })
+    }
+    if (selectedLoan) fetchCollectionNotes(selectedLoan.id)
   }
 
   const handleSelectLoan = (loan: OverdueLoan) => {
     setSelectedLoan(loan)
     setShowNotes(true)
+    setEditingNoteId(null)
+    setNewNote({ note: '', promise_date: '' })
     fetchCollectionNotes(loan.id)
   }
 
@@ -265,12 +306,26 @@ export default function CollectionsPage() {
                 />
               </div>
 
-              <button
-                type="submit"
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-              >
-                Add Note
-              </button>
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                >
+                  {editingNoteId ? 'Save Changes' : 'Add Note'}
+                </button>
+                {editingNoteId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingNoteId(null)
+                      setNewNote({ note: '', promise_date: '' })
+                    }}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
+                  >
+                    Cancel Edit
+                  </button>
+                )}
+              </div>
             </form>
 
             {/* Notes History */}
@@ -294,9 +349,25 @@ export default function CollectionsPage() {
                         <p className="text-xs text-gray-500">
                           {(note as any).profiles?.full_name || 'Unknown'}
                         </p>
-                        <p className="text-xs text-gray-400">
+                        <p className="text-xs text-gray-600">
                           {new Date(note.created_at).toLocaleString()}
                         </p>
+                        <div className="mt-2 flex justify-end gap-3">
+                          <button
+                            type="button"
+                            onClick={() => handleEditNote(note)}
+                            className="text-xs font-medium text-indigo-600 hover:text-indigo-900"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteNote(note)}
+                            className="text-xs font-medium text-red-600 hover:text-red-800"
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>

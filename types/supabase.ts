@@ -366,5 +366,36 @@ export interface Database {
         }
       }
     }
+    Views: {
+      v_active_loans: { Row: { count: number }; Relationships: [] }
+      v_outstanding_principal: { Row: { total: number }; Relationships: [] }
+      v_overdue_loans: { Row: { count: number; total_amount: number }; Relationships: [] }
+      v_aging_buckets: {
+        Row: { bucket: string | null; loan_count: number; total_amount: number }
+        Relationships: []
+      }
+      v_portfolio_at_risk: { Row: { percentage: number }; Relationships: [] }
+      v_pending_applications: { Row: { count: number }; Relationships: [] }
+      v_disbursed_month: { Row: { total: number }; Relationships: [] }
+      v_collected_month: { Row: { total: number }; Relationships: [] }
+      v_interest_earned_month: { Row: { total: number }; Relationships: [] }
+      v_expected_interest_30days: { Row: { total: number }; Relationships: [] }
+      v_approval_rate: { Row: { percentage: number }; Relationships: [] }
+      v_write_offs: { Row: { percentage: number }; Relationships: [] }
+      v_repeat_borrowers: { Row: { percentage: number }; Relationships: [] }
+      v_due_this_week: {
+        Row: {
+          id: string
+          principal: number
+          borrower_name: string
+          phone: string
+          installment_no: number
+          due_date: string
+          total_due: number
+          amount_paid: number
+        }
+        Relationships: []
+      }
+    }
   }
 }

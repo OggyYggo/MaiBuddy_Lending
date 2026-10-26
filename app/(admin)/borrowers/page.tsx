@@ -10,7 +10,9 @@ export default function BorrowersPage() {
   const [borrowers, setBorrowers] = useState<Borrower[]>([])
   const [search, setSearch] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [editingBorrowerId, setEditingBorrowerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const supabase = createClient()
 
   const [formData, setFormData] = useState({
@@ -31,6 +33,7 @@ export default function BorrowersPage() {
 
   const fetchBorrowers = async () => {
     setLoading(true)
+    setFetchError(null)
     try {
       const { data, error } = await supabase
         .from('borrowers')
@@ -38,23 +41,34 @@ export default function BorrowersPage() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('Error fetching borrowers:', error)
-        console.error('Error details:', JSON.stringify(error, null, 2))
-        alert(`Error fetching borrowers: ${error.message || 'Unknown error'}`)
+        const details = [
+          error.message,
+          error.details,
+          error.hint,
+          error.code ? `Code: ${error.code}` : null,
+        ].filter(Boolean).join(' — ')
+        console.error('Error fetching borrowers:', {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code,
+        })
+        setFetchError(details || 'The database returned an empty error. Check the browser Network tab for the Supabase request response.')
       } else {
         setBorrowers(data || [])
       }
     } catch (err) {
       console.error('Unexpected error fetching borrowers:', err)
-      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setFetchError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const { error } = await supabase.from('borrowers').insert({
+    const borrowerData = {
       full_name: formData.full_name,
       birth_date: formData.birth_date,
       phone: formData.phone,
@@ -64,13 +78,17 @@ export default function BorrowersPage() {
       id_type: formData.id_type || null,
       id_number: formData.id_number || null,
       notes: formData.notes || null,
-    })
+    }
+    const { error } = editingBorrowerId
+      ? await supabase.from('borrowers').update(borrowerData).eq('id', editingBorrowerId)
+      : await supabase.from('borrowers').insert(borrowerData)
 
     if (error) {
-      console.error('Error creating borrower:', error)
-      alert('Failed to create borrower')
+      console.error('Error saving borrower:', error)
+      alert(`Failed to ${editingBorrowerId ? 'update' : 'create'} borrower: ${error.message}`)
     } else {
       setShowForm(false)
+      setEditingBorrowerId(null)
       setFormData({
         full_name: '',
         birth_date: '',
@@ -86,6 +104,44 @@ export default function BorrowersPage() {
     }
   }
 
+  const handleEdit = (borrower: Borrower) => {
+    setEditingBorrowerId(borrower.id)
+    setFormData({
+      full_name: borrower.full_name,
+      birth_date: borrower.birth_date,
+      phone: borrower.phone,
+      address: borrower.address,
+      employer: borrower.employer || '',
+      monthly_income: borrower.monthly_income?.toString() || '',
+      id_type: borrower.id_type || '',
+      id_number: borrower.id_number || '',
+      notes: borrower.notes || '',
+    })
+    setShowForm(true)
+  }
+
+  const handleDelete = async (borrower: Borrower) => {
+    if (!window.confirm(`Delete borrower ${borrower.full_name}? This is only possible if the borrower has no applications or loans.`)) {
+      return
+    }
+
+    const { data, error } = await supabase
+      .from('borrowers')
+      .delete()
+      .eq('id', borrower.id)
+      .select('id')
+    if (error) {
+      console.error('Error deleting borrower:', error)
+      alert(`Could not delete borrower: ${error.message}`)
+      return
+    }
+    if (!data?.length) {
+      alert('No borrower was deleted. Apply the admin record-management SQL migration in Supabase to enable deletes.')
+      return
+    }
+    fetchBorrowers()
+  }
+
   const filteredBorrowers = borrowers.filter(
     (b) =>
       b.full_name.toLowerCase().includes(search.toLowerCase()) ||
@@ -97,7 +153,14 @@ export default function BorrowersPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Borrowers</h1>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            setEditingBorrowerId(null)
+            setFormData({
+              full_name: '', birth_date: '', phone: '', address: '', employer: '',
+              monthly_income: '', id_type: '', id_number: '', notes: '',
+            })
+            setShowForm(true)
+          }}
           className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
         >
           Add Borrower
@@ -116,7 +179,7 @@ export default function BorrowersPage() {
 
       {showForm && (
         <div className="bg-white p-6 rounded-lg shadow border border-gray-200 mb-6">
-          <h2 className="text-lg font-semibold mb-4">Add New Borrower</h2>
+          <h2 className="text-lg font-semibold mb-4">{editingBorrowerId ? 'Edit Borrower' : 'Add New Borrower'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -238,17 +301,26 @@ export default function BorrowersPage() {
                 type="submit"
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
               >
-                Save Borrower
+                {editingBorrowerId ? 'Save Changes' : 'Save Borrower'}
               </button>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  setShowForm(false)
+                  setEditingBorrowerId(null)
+                }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
               >
                 Cancel
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {fetchError && (
+        <div role="alert" className="mb-4 rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          Failed to load borrowers: {fetchError}
         </div>
       )}
 
@@ -300,6 +372,20 @@ export default function BorrowersPage() {
                     >
                       View
                     </a>
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(borrower)}
+                      className="ml-3 text-indigo-600 hover:text-indigo-900"
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(borrower)}
+                      className="ml-3 text-red-600 hover:text-red-800"
+                    >
+                      Delete
+                    </button>
                   </td>
                 </tr>
               ))}

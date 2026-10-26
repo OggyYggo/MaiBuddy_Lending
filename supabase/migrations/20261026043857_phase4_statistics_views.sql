@@ -47,7 +47,7 @@ FROM (
   SELECT
     l.id,
     le.balance_after,
-    EXTRACT(DAY FROM (CURRENT_DATE - MIN(si.due_date)))::INTEGER as days_late
+    (CURRENT_DATE - MIN(si.due_date))::INTEGER as days_late
   FROM loans l
   JOIN (
     SELECT DISTINCT ON (loan_id) loan_id, balance_after
@@ -61,13 +61,7 @@ FROM (
   GROUP BY l.id, le.balance_after
 ) overdue_loans
 GROUP BY bucket
-ORDER BY
-  CASE bucket
-    WHEN '1-30 days' THEN 1
-    WHEN '31-60 days' THEN 2
-    WHEN '61-90 days' THEN 3
-    WHEN 'Over 90 days' THEN 4
-  END;
+ORDER BY MIN(days_late);
 
 -- View: Portfolio at risk (30+ days overdue)
 CREATE OR REPLACE VIEW v_portfolio_at_risk AS

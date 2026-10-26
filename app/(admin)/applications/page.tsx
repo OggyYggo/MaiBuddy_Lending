@@ -13,6 +13,7 @@ export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [borrowers, setBorrowers] = useState<Borrower[]>([])
   const [showForm, setShowForm] = useState(false)
+  const [editingApplicationId, setEditingApplicationId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
@@ -88,20 +89,24 @@ export default function ApplicationsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const { error } = await supabase.from('applications').insert({
+    const applicationData = {
       borrower_id: formData.borrower_id,
       amount: parseFloat(formData.amount),
       term_months: parseInt(formData.term_months),
       purpose: formData.purpose || null,
       repayment_style: formData.repayment_style,
-      status: 'draft',
-    })
+    }
+    const result = editingApplicationId
+      ? await supabase.from('applications').update(applicationData).eq('id', editingApplicationId)
+      : await supabase.from('applications').insert({ ...applicationData, status: 'draft' })
+    const { error } = result
 
     if (error) {
-      console.error('Error creating application:', error)
-      alert('Failed to create application')
+      console.error('Error saving application:', error)
+      alert(`Failed to ${editingApplicationId ? 'update' : 'create'} application: ${error.message}`)
     } else {
       setShowForm(false)
+      setEditingApplicationId(null)
       setFormData({
         borrower_id: '',
         amount: '',
@@ -112,6 +117,45 @@ export default function ApplicationsPage() {
       setSchedulePreview([])
       fetchApplications()
     }
+  }
+
+  const handleEdit = (application: Application) => {
+    setEditingApplicationId(application.id)
+    setFormData({
+      borrower_id: application.borrower_id,
+      amount: application.amount.toString(),
+      term_months: application.term_months.toString(),
+      purpose: application.purpose || '',
+      repayment_style: application.repayment_style,
+    })
+    updateSchedulePreview({
+      borrower_id: application.borrower_id,
+      amount: application.amount.toString(),
+      term_months: application.term_months.toString(),
+      purpose: application.purpose || '',
+      repayment_style: application.repayment_style,
+    })
+    setShowForm(true)
+  }
+
+  const handleDelete = async (application: Application) => {
+    if (!window.confirm(`Delete this ${application.status.replace('_', ' ')} application?`)) return
+
+    const { data, error } = await supabase
+      .from('applications')
+      .delete()
+      .eq('id', application.id)
+      .select('id')
+    if (error) {
+      console.error('Error deleting application:', error)
+      alert(`Could not delete application: ${error.message}`)
+      return
+    }
+    if (!data?.length) {
+      alert('No application was deleted. Apply the admin record-management SQL migration in Supabase to enable deletes.')
+      return
+    }
+    fetchApplications()
   }
 
   const statusColors: Record<string, string> = {
@@ -127,7 +171,12 @@ export default function ApplicationsPage() {
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
         <button
-          onClick={() => setShowForm(true)}
+          onClick={() => {
+            setEditingApplicationId(null)
+            setFormData({ borrower_id: '', amount: '', term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL' })
+            setSchedulePreview([])
+            setShowForm(true)
+          }}
           className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
         >
           New Application
@@ -136,7 +185,7 @@ export default function ApplicationsPage() {
 
       {showForm && (
         <div className="bg-white p-6 rounded-lg shadow border border-gray-200 mb-6">
-          <h2 className="text-lg font-semibold mb-4">New Loan Application</h2>
+          <h2 className="text-lg font-semibold mb-4">{editingApplicationId ? 'Edit Loan Application' : 'New Loan Application'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -274,11 +323,15 @@ export default function ApplicationsPage() {
                 type="submit"
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
               >
-                Create Application
+                {editingApplicationId ? 'Save Changes' : 'Create Application'}
               </button>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={() => {
+                  setShowForm(false)
+                  setEditingApplicationId(null)
+                  setSchedulePreview([])
+                }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
               >
                 Cancel
@@ -350,6 +403,24 @@ export default function ApplicationsPage() {
                     >
                       Review
                     </a>
+                    {(app.status === 'draft' || app.status === 'in_review') && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleEdit(app)}
+                          className="ml-3 text-indigo-600 hover:text-indigo-900"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(app)}
+                          className="ml-3 text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
+                      </>
+                    )}
                   </td>
                 </tr>
               ))}

@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/client'
 
 export default function DashboardPage() {
   const [stats, setStats] = useState({
+    totalBorrowers: 0,
     activeLoans: 0,
     outstandingPrincipal: 0,
     overdueLoans: 0,
@@ -22,6 +23,7 @@ export default function DashboardPage() {
   const [dueThisWeek, setDueThisWeek] = useState<any[]>([])
   const [agingBuckets, setAgingBuckets] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -30,59 +32,102 @@ export default function DashboardPage() {
 
   const fetchStatistics = async () => {
     setLoading(true)
+    setFetchError(null)
 
-    // Fetch all statistics in parallel
-    const [
-      activeLoans,
-      outstandingPrincipal,
-      overdueLoans,
-      pendingApplications,
-      disbursedMonth,
-      collectedMonth,
-      interestEarnedMonth,
-      expectedInterest30Days,
-      approvalRate,
-      portfolioAtRisk,
-      writeOffs,
-      repeatBorrowers,
-      dueThisWeekData,
-      agingBucketsData,
-    ] = await Promise.all([
-      supabase.from('v_active_loans').select('*').single(),
-      supabase.from('v_outstanding_principal').select('*').single(),
-      supabase.from('v_overdue_loans').select('*').single(),
-      supabase.from('v_pending_applications').select('*').single(),
-      supabase.from('v_disbursed_month').select('*').single(),
-      supabase.from('v_collected_month').select('*').single(),
-      supabase.from('v_interest_earned_month').select('*').single(),
-      supabase.from('v_expected_interest_30days').select('*').single(),
-      supabase.from('v_approval_rate').select('*').single(),
-      supabase.from('v_portfolio_at_risk').select('*').single(),
-      supabase.from('v_write_offs').select('*').single(),
-      supabase.from('v_repeat_borrowers').select('*').single(),
-      supabase.from('v_due_this_week').select('*'),
-      supabase.from('v_aging_buckets').select('*'),
-    ])
+    try {
+      const [
+        borrowers,
+        activeLoans,
+        outstandingPrincipal,
+        overdueLoans,
+        pendingApplications,
+        disbursedMonth,
+        collectedMonth,
+        interestEarnedMonth,
+        expectedInterest30Days,
+        approvalRate,
+        portfolioAtRisk,
+        writeOffs,
+        repeatBorrowers,
+        dueThisWeekData,
+        agingBucketsData,
+      ] = await Promise.all([
+        supabase.from('borrowers').select('id', { count: 'exact', head: true }),
+        supabase.from('v_active_loans').select('*').single(),
+        supabase.from('v_outstanding_principal').select('*').single(),
+        supabase.from('v_overdue_loans').select('*').single(),
+        supabase.from('v_pending_applications').select('*').single(),
+        supabase.from('v_disbursed_month').select('*').single(),
+        supabase.from('v_collected_month').select('*').single(),
+        supabase.from('v_interest_earned_month').select('*').single(),
+        supabase.from('v_expected_interest_30days').select('*').single(),
+        supabase.from('v_approval_rate').select('*').single(),
+        supabase.from('v_portfolio_at_risk').select('*').single(),
+        supabase.from('v_write_offs').select('*').single(),
+        supabase.from('v_repeat_borrowers').select('*').single(),
+        supabase.from('v_due_this_week').select('*'),
+        supabase.from('v_aging_buckets').select('*'),
+      ])
 
-    setStats({
-      activeLoans: activeLoans.data?.count || 0,
-      outstandingPrincipal: outstandingPrincipal.data?.total || 0,
-      overdueLoans: overdueLoans.data?.count || 0,
-      overdueAmount: overdueLoans.data?.total_amount || 0,
-      pendingApplications: pendingApplications.data?.count || 0,
-      disbursedMonth: disbursedMonth.data?.total || 0,
-      collectedMonth: collectedMonth.data?.total || 0,
-      interestEarnedMonth: interestEarnedMonth.data?.total || 0,
-      expectedInterest30Days: expectedInterest30Days.data?.total || 0,
-      approvalRate: approvalRate.data?.percentage || 0,
-      portfolioAtRisk: portfolioAtRisk.data?.percentage || 0,
-      writeOffs: writeOffs.data?.percentage || 0,
-      repeatBorrowers: repeatBorrowers.data?.percentage || 0,
-    })
+      const failedQuery = [
+        borrowers,
+        activeLoans,
+        outstandingPrincipal,
+        overdueLoans,
+        pendingApplications,
+        disbursedMonth,
+        collectedMonth,
+        interestEarnedMonth,
+        expectedInterest30Days,
+        approvalRate,
+        portfolioAtRisk,
+        writeOffs,
+        repeatBorrowers,
+        dueThisWeekData,
+        agingBucketsData,
+      ].find((result) => result.error)
 
-    setDueThisWeek(dueThisWeekData.data || [])
-    setAgingBuckets(agingBucketsData.data || [])
-    setLoading(false)
+      if (failedQuery?.error) {
+        const errorDetails = [
+          failedQuery.error.message,
+          failedQuery.error.details,
+          failedQuery.error.hint,
+          failedQuery.error.code ? `Code: ${failedQuery.error.code}` : null,
+        ].filter(Boolean).join(' — ')
+        console.error(
+          `Error fetching dashboard statistics: ${errorDetails || 'Supabase returned an empty error object. Check the accompanying Supabase request log for its HTTP response.'}`
+        )
+        setFetchError(
+          `${errorDetails || 'Supabase returned an empty error object.'} Check that the statistics views migration is applied and the logged-in user can read its views.`
+        )
+        return
+      }
+
+      setStats({
+        totalBorrowers: borrowers.count || 0,
+        activeLoans: activeLoans.data?.count || 0,
+        outstandingPrincipal: outstandingPrincipal.data?.total || 0,
+        overdueLoans: overdueLoans.data?.count || 0,
+        overdueAmount: overdueLoans.data?.total_amount || 0,
+        pendingApplications: pendingApplications.data?.count || 0,
+        disbursedMonth: disbursedMonth.data?.total || 0,
+        collectedMonth: collectedMonth.data?.total || 0,
+        interestEarnedMonth: interestEarnedMonth.data?.total || 0,
+        expectedInterest30Days: expectedInterest30Days.data?.total || 0,
+        approvalRate: approvalRate.data?.percentage || 0,
+        portfolioAtRisk: portfolioAtRisk.data?.percentage || 0,
+        writeOffs: writeOffs.data?.percentage || 0,
+        repeatBorrowers: repeatBorrowers.data?.percentage || 0,
+      })
+
+      setDueThisWeek(dueThisWeekData.data || [])
+      setAgingBuckets(agingBucketsData.data || [])
+    } catch (error) {
+      console.error('Unexpected error fetching dashboard statistics:', error)
+      setFetchError(error instanceof Error ? error.message : String(error))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const formatCurrency = (amount: number) => {
@@ -101,10 +146,22 @@ export default function DashboardPage() {
 
       {loading ? (
         <div className="text-center py-8">Loading...</div>
+      ) : fetchError ? (
+        <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <p>Could not load live dashboard statistics: {fetchError}</p>
+          <button onClick={fetchStatistics} className="mt-3 font-medium underline">
+            Try again
+          </button>
+        </div>
       ) : (
         <>
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+              <h3 className="text-sm font-medium text-gray-500">Total Borrowers</h3>
+              <p className="mt-2 text-3xl font-bold text-gray-900">{stats.totalBorrowers}</p>
+            </div>
+
             <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
               <h3 className="text-sm font-medium text-gray-500">Active Loans</h3>
               <p className="mt-2 text-3xl font-bold text-gray-900">{stats.activeLoans}</p>
