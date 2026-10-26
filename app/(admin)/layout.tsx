@@ -1,6 +1,5 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
-import { CurrentDate } from '@/components/admin/CurrentDate'
 
 export default async function AdminLayout({
   children,
@@ -130,16 +129,6 @@ export default async function AdminLayout({
         <header className="bg-white border-b border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold text-gray-900">Dashboard</h2>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-600">
-                {new Date().toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </span>
-            </div>
           </div>
         </header>
 

@@ -31,15 +31,22 @@ export default function BorrowersPage() {
 
   const fetchBorrowers = async () => {
     setLoading(true)
-    const { data, error } = await supabase
-      .from('borrowers')
-      .select('*')
-      .order('created_at', { ascending: false })
+    try {
+      const { data, error } = await supabase
+        .from('borrowers')
+        .select('*')
+        .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Error fetching borrowers:', error)
-    } else {
-      setBorrowers(data || [])
+      if (error) {
+        console.error('Error fetching borrowers:', error)
+        console.error('Error details:', JSON.stringify(error, null, 2))
+        alert(`Error fetching borrowers: ${error.message || 'Unknown error'}`)
+      } else {
+        setBorrowers(data || [])
+      }
+    } catch (err) {
+      console.error('Unexpected error fetching borrowers:', err)
+      alert(`Unexpected error: ${err instanceof Error ? err.message : 'Unknown error'}`)
     }
     setLoading(false)
   }

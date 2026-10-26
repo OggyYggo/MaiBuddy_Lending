@@ -1,0 +1,311 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@/utils/supabase/client'
+import type { Database } from '@/types/supabase'
+
+type OverdueLoan = Database['public']['Tables']['loans']['Row'] & {
+  borrowers: Database['public']['Tables']['borrowers']['Row']
+}
+
+type CollectionNote = Database['public']['Tables']['collection_notes']['Row'] & {
+  profiles: Database['public']['Tables']['profiles']['Row']
+}
+
+export default function CollectionsPage() {
+  const [overdueLoans, setOverdueLoans] = useState<OverdueLoan[]>([])
+  const [agingBuckets, setAgingBuckets] = useState<any[]>([])
+  const [selectedLoan, setSelectedLoan] = useState<OverdueLoan | null>(null)
+  const [collectionNotes, setCollectionNotes] = useState<CollectionNote[]>([])
+  const [showNotes, setShowNotes] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const supabase = createClient()
+
+  const [newNote, setNewNote] = useState({
+    note: '',
+    promise_date: '',
+  })
+
+  useEffect(() => {
+    fetchOverdueLoans()
+    fetchAgingBuckets()
+  }, [])
+
+  const fetchOverdueLoans = async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('loans')
+      .select('*, borrowers(*)')
+      .eq('status', 'overdue')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching overdue loans:', error)
+    } else {
+      setOverdueLoans(data || [])
+    }
+    setLoading(false)
+  }
+
+  const fetchAgingBuckets = async () => {
+    const { data, error } = await supabase
+      .from('v_aging_buckets')
+      .select('*')
+
+    if (error) {
+      console.error('Error fetching aging buckets:', error)
+    } else {
+      setAgingBuckets(data || [])
+    }
+  }
+
+  const fetchCollectionNotes = async (loanId: string) => {
+    const { data, error } = await supabase
+      .from('collection_notes')
+      .select('*, profiles(*)')
+      .eq('loan_id', loanId)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching collection notes:', error)
+    } else {
+      setCollectionNotes(data || [])
+    }
+  }
+
+  const handleAddNote = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    const { data: { user } } = await supabase.auth.getUser()
+
+    const { error } = await supabase.from('collection_notes').insert({
+      loan_id: selectedLoan?.id,
+      note: newNote.note,
+      promise_date: newNote.promise_date || null,
+      created_by: user?.id,
+    })
+
+    if (error) {
+      console.error('Error adding collection note:', error)
+      alert('Failed to add note')
+    } else {
+      setNewNote({ note: '', promise_date: '' })
+      fetchCollectionNotes(selectedLoan?.id || '')
+    }
+  }
+
+  const handleSelectLoan = (loan: OverdueLoan) => {
+    setSelectedLoan(loan)
+    setShowNotes(true)
+    fetchCollectionNotes(loan.id)
+  }
+
+  const getDaysLate = (loan: OverdueLoan) => {
+    if (!loan.maturity_date) return 0
+    const maturity = new Date(loan.maturity_date)
+    const today = new Date()
+    const diffTime = today.getTime() - maturity.getTime()
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+  }
+
+  const getAgingBucket = (daysLate: number) => {
+    if (daysLate <= 30) return '1-30 days'
+    if (daysLate <= 60) return '31-60 days'
+    if (daysLate <= 90) return '61-90 days'
+    return 'Over 90 days'
+  }
+
+  const bucketColors: Record<string, string> = {
+    '1-30 days': 'bg-yellow-100 text-yellow-800',
+    '31-60 days': 'bg-orange-100 text-orange-800',
+    '61-90 days': 'bg-red-100 text-red-800',
+    'Over 90 days': 'bg-red-200 text-red-900',
+  }
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">Collections</h1>
+
+      {/* Aging Buckets Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        {agingBuckets.map((bucket) => (
+          <div key={bucket.bucket} className="bg-white p-6 rounded-lg shadow border border-gray-200">
+            <h3 className="text-sm font-medium text-gray-500 mb-2">{bucket.bucket}</h3>
+            <p className="text-2xl font-bold text-gray-900">{bucket.loan_count} loans</p>
+            <p className="text-sm text-gray-600 mt-1">
+              ₱{bucket.total_amount?.toLocaleString() || 0}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      {/* Overdue Loans List */}
+      <div className="bg-white rounded-lg shadow border border-gray-200 mb-6">
+        <h2 className="text-lg font-semibold p-6 border-b border-gray-200">Overdue Loans</h2>
+
+        {loading ? (
+          <div className="text-center py-8">Loading...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Borrower
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Phone
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Principal
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Days Late
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Aging Bucket
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {overdueLoans.map((loan) => {
+                  const daysLate = getDaysLate(loan)
+                  const bucket = getAgingBucket(daysLate)
+                  return (
+                    <tr key={loan.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {(loan as any).borrowers?.full_name || 'Unknown'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-500">
+                          {(loan as any).borrowers?.phone || '-'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          ₱{loan.principal.toLocaleString()}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 font-medium">{daysLate}</div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full ${bucketColors[bucket]}`}
+                        >
+                          {bucket}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <button
+                          onClick={() => handleSelectLoan(loan)}
+                          className="text-indigo-600 hover:text-indigo-900"
+                        >
+                          Add Note
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+
+            {overdueLoans.length === 0 && (
+              <div className="text-center py-8 text-gray-500">No overdue loans</div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Collection Notes Panel */}
+      {showNotes && selectedLoan && (
+        <div className="bg-white rounded-lg shadow border border-gray-200">
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+            <h2 className="text-lg font-semibold">
+              Collection Notes - {(selectedLoan as any).borrowers?.full_name}
+            </h2>
+            <button
+              onClick={() => setShowNotes(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              Close
+            </button>
+          </div>
+
+          <div className="p-6">
+            {/* Add Note Form */}
+            <form onSubmit={handleAddNote} className="mb-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Note *
+                </label>
+                <textarea
+                  required
+                  value={newNote.note}
+                  onChange={(e) => setNewNote({ ...newNote, note: e.target.value })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Promise Date
+                </label>
+                <input
+                  type="date"
+                  value={newNote.promise_date}
+                  onChange={(e) => setNewNote({ ...newNote, promise_date: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+              >
+                Add Note
+              </button>
+            </form>
+
+            {/* Notes History */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium text-gray-700">Note History</h3>
+              {collectionNotes.length === 0 ? (
+                <div className="text-sm text-gray-500">No notes yet</div>
+              ) : (
+                collectionNotes.map((note) => (
+                  <div key={note.id} className="border-l-4 border-indigo-500 pl-4 py-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm text-gray-900">{note.note}</p>
+                        {note.promise_date && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Promise Date: {new Date(note.promise_date).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">
+                          {(note as any).profiles?.full_name || 'Unknown'}
+                        </p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(note.created_at).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
