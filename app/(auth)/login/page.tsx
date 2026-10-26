@@ -11,7 +11,6 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
-  const supabase = createClient()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -22,6 +21,7 @@ export default function LoginPage() {
       const input: LoginInput = { email, password }
       loginSchema.parse(input)
 
+      const supabase = createClient()
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -34,7 +34,11 @@ export default function LoginPage() {
         router.refresh()
       }
     } catch (err) {
-      setError('Invalid email or password')
+      setError(
+        err instanceof Error && err.message === 'Missing Supabase environment variables'
+          ? 'Login is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in Vercel.'
+          : 'Invalid email or password'
+      )
     } finally {
       setLoading(false)
     }
