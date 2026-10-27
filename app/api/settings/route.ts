@@ -1,8 +1,11 @@
 import { createClient } from '@/utils/supabase/server'
 import { NextResponse } from 'next/server'
+import type { Database } from '@/types/supabase'
+
+type Setting = Database['public']['Tables']['settings']['Row']
 
 export async function GET() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error } = await supabase
     .from('settings')
@@ -13,7 +16,7 @@ export async function GET() {
   }
 
   const settingsMap: Record<string, string> = {}
-  data?.forEach((setting) => {
+  data?.forEach((setting: Setting) => {
     settingsMap[setting.key] = setting.value
   })
 
