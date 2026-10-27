@@ -26,7 +26,11 @@ export default function LoginPage() {
 
     try {
       const input: LoginInput = { email, password }
-      loginSchema.parse(input)
+      const validation = loginSchema.safeParse(input)
+      if (!validation.success) {
+        setError(validation.error.issues[0]?.message ?? 'Enter a valid email and password')
+        return
+      }
 
       const supabase = createClient()
       const { error } = await supabase.auth.signInWithPassword({
@@ -41,11 +45,17 @@ export default function LoginPage() {
         router.refresh()
       }
     } catch (err) {
-      setError(
-        err instanceof Error && err.message === 'Missing Supabase environment variables'
-          ? 'Login is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY in Vercel.'
-          : 'Invalid email or password'
-      )
+      if (err instanceof Error && err.message === 'Missing Supabase environment variables') {
+        setError('Login is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY for this Vercel environment, then redeploy.')
+      } else if (
+        err instanceof TypeError &&
+        /fetch|network/i.test(err.message)
+      ) {
+        setError('Could not reach Supabase. Check the deployed Supabase URL and try again.')
+      } else {
+        console.error('Unexpected login error:', err)
+        setError('Something went wrong while signing in. Please try again.')
+      }
     } finally {
       setLoading(false)
     }
