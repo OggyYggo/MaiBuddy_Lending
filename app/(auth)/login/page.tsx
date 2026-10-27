@@ -46,7 +46,7 @@ export default function LoginPage() {
       }
     } catch (err) {
       if (err instanceof Error && err.message === 'Missing Supabase environment variables') {
-        setError('Login is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY for this Vercel environment, then redeploy.')
+        setError('Login is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY for this Vercel environment, then redeploy.')
       } else if (
         err instanceof TypeError &&
         /fetch|network/i.test(err.message)
