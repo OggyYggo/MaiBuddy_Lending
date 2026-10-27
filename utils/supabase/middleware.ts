@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
-export const createClient = (request: NextRequest) => {
+export const createClient = async (request: NextRequest) => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
 
@@ -37,6 +37,9 @@ export const createClient = (request: NextRequest) => {
       },
     },
   );
+
+  // Refresh the auth token and write any updated cookies to the response.
+  await supabase.auth.getUser();
 
   return supabaseResponse
 };

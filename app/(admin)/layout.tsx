@@ -23,7 +23,7 @@ export default async function AdminLayout({
     .single()
 
   if (!profile || profile.status !== 'active') {
-    redirect('/login')
+    redirect('/login?error=account_not_active')
   }
 
   return (

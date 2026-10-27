@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 import { loginSchema, type LoginInput } from '@/lib/validations'
@@ -11,6 +11,13 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+
+  useEffect(() => {
+    const error = new URLSearchParams(window.location.search).get('error')
+    if (error === 'account_not_active') {
+      setError('Your login succeeded, but this account has no active admin profile. Ask an administrator to activate your profile in Supabase.')
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
