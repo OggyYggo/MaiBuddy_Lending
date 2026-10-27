@@ -132,7 +132,9 @@ export default function SettingsPage() {
 
   const getSettingLabel = (key: string) => {
     const labels: Record<string, string> = {
-      monthly_rate: 'Monthly Interest Rate (%)',
+      monthly_rate: 'Default Monthly Interest Rate (%)',
+      min_rate: 'Minimum Monthly Interest Rate (%)',
+      max_rate: 'Maximum Monthly Interest Rate (%)',
       default_repayment_style: 'Default Repayment Style',
       min_loan_amount: 'Minimum Loan Amount (₱)',
       max_loan_amount: 'Maximum Loan Amount (₱)',
@@ -202,7 +204,7 @@ export default function SettingsPage() {
 
               <div className="space-y-4">
                 {settings
-                  .filter((s) => ['monthly_rate', 'default_repayment_style', 'grace_days', 'late_payment_penalty_rate'].includes(s.key))
+                  .filter((s) => ['monthly_rate', 'min_rate', 'max_rate', 'default_repayment_style', 'grace_days', 'late_payment_penalty_rate'].includes(s.key))
                   .map((setting) => (
                     <div key={setting.key}>
                       <label className="block text-sm font-medium text-gray-700 mb-1">

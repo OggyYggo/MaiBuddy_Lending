@@ -39,18 +39,21 @@ export interface Database {
         Row: {
           key: string
           value: string
+          description: string | null
           updated_by: string | null
           updated_at: string
         }
         Insert: {
           key: string
           value: string
+          description?: string | null
           updated_by?: string | null
           updated_at?: string
         }
         Update: {
           key?: string
           value?: string
+          description?: string | null
           updated_by?: string | null
           updated_at?: string
         }
@@ -181,6 +184,8 @@ export interface Database {
           created_by: string | null
           created_at: string
           updated_at: string
+          custom_rate: number | null
+          rate_override_reason: string | null
         }
         Insert: {
           id?: string
@@ -196,6 +201,8 @@ export interface Database {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+          custom_rate?: number | null
+          rate_override_reason?: string | null
         }
         Update: {
           id?: string
@@ -211,6 +218,8 @@ export interface Database {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+          custom_rate?: number | null
+          rate_override_reason?: string | null
         }
       }
       loans: {

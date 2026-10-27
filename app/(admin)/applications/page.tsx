@@ -15,6 +15,7 @@ export default function ApplicationsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingApplicationId, setEditingApplicationId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [settings, setSettings] = useState<Record<string, string>>({})
   const supabase = createClient()
 
   const [formData, setFormData] = useState({
@@ -23,6 +24,8 @@ export default function ApplicationsPage() {
     term_months: '',
     purpose: '',
     repayment_style: 'EQUAL_PRINCIPAL' as 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT',
+    custom_rate: '',
+    rate_override_reason: '',
   })
 
   const [schedulePreview, setSchedulePreview] = useState<any[]>([])
@@ -30,6 +33,7 @@ export default function ApplicationsPage() {
   useEffect(() => {
     fetchApplications()
     fetchBorrowers()
+    fetchSettings()
   }, [])
 
   const fetchApplications = async () => {
@@ -60,10 +64,26 @@ export default function ApplicationsPage() {
     }
   }
 
+  const fetchSettings = async () => {
+    const { data, error } = await supabase
+      .from('settings')
+      .select('*')
+
+    if (error) {
+      console.error('Error fetching settings:', error)
+    } else {
+      const settingsMap: Record<string, string> = {}
+      data?.forEach((setting) => {
+        settingsMap[setting.key] = setting.value
+      })
+      setSettings(settingsMap)
+    }
+  }
+
   const handleFormChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value })
 
-    if (field === 'amount' || field === 'term_months' || field === 'repayment_style') {
+    if (field === 'amount' || field === 'term_months' || field === 'repayment_style' || field === 'custom_rate') {
       updateSchedulePreview({ ...formData, [field]: value })
     }
   }
@@ -71,9 +91,10 @@ export default function ApplicationsPage() {
   const updateSchedulePreview = (data: typeof formData) => {
     if (data.amount && data.term_months && data.repayment_style) {
       try {
+        const rate = data.custom_rate ? parseFloat(data.custom_rate) : (settings.monthly_rate ? parseFloat(settings.monthly_rate) : 0.05)
         const schedule = generateSchedule({
           principal: new Decimal(data.amount),
-          rate: new Decimal(0.05),
+          rate: new Decimal(rate),
           months: parseInt(data.term_months),
           style: data.repayment_style,
           startDate: new Date(),
@@ -89,12 +110,30 @@ export default function ApplicationsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    if (formData.custom_rate) {
+      const rate = parseFloat(formData.custom_rate)
+      const minRate = settings.min_rate ? parseFloat(settings.min_rate) : 0.01
+      const maxRate = settings.max_rate ? parseFloat(settings.max_rate) : 0.10
+
+      if (rate < minRate || rate > maxRate) {
+        alert(`Custom rate must be between ${(minRate * 100).toFixed(2)}% and ${(maxRate * 100).toFixed(2)}%`)
+        return
+      }
+
+      if (!formData.rate_override_reason.trim()) {
+        alert('Please provide a reason for the rate override')
+        return
+      }
+    }
+
     const applicationData = {
       borrower_id: formData.borrower_id,
       amount: parseFloat(formData.amount),
       term_months: parseInt(formData.term_months),
       purpose: formData.purpose || null,
       repayment_style: formData.repayment_style,
+      custom_rate: formData.custom_rate ? parseFloat(formData.custom_rate) : null,
+      rate_override_reason: formData.custom_rate ? formData.rate_override_reason : null,
     }
     const result = editingApplicationId
       ? await supabase.from('applications').update(applicationData).eq('id', editingApplicationId)
@@ -113,6 +152,8 @@ export default function ApplicationsPage() {
         term_months: '',
         purpose: '',
         repayment_style: 'EQUAL_PRINCIPAL',
+        custom_rate: '',
+        rate_override_reason: '',
       })
       setSchedulePreview([])
       fetchApplications()
@@ -127,6 +168,8 @@ export default function ApplicationsPage() {
       term_months: application.term_months.toString(),
       purpose: application.purpose || '',
       repayment_style: application.repayment_style,
+      custom_rate: (application as any).custom_rate?.toString() || '',
+      rate_override_reason: (application as any).rate_override_reason || '',
     })
     updateSchedulePreview({
       borrower_id: application.borrower_id,
@@ -134,6 +177,8 @@ export default function ApplicationsPage() {
       term_months: application.term_months.toString(),
       purpose: application.purpose || '',
       repayment_style: application.repayment_style,
+      custom_rate: (application as any).custom_rate?.toString() || '',
+      rate_override_reason: (application as any).rate_override_reason || '',
     })
     setShowForm(true)
   }
@@ -173,7 +218,7 @@ export default function ApplicationsPage() {
         <button
           onClick={() => {
             setEditingApplicationId(null)
-            setFormData({ borrower_id: '', amount: '', term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL' })
+            setFormData({ borrower_id: '', amount: '', term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL', custom_rate: '', rate_override_reason: '' })
             setSchedulePreview([])
             setShowForm(true)
           }}
@@ -251,6 +296,25 @@ export default function ApplicationsPage() {
                 </select>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Custom Monthly Rate (optional)
+                </label>
+                <input
+                  type="number"
+                  step="0.0001"
+                  min="0"
+                  max="1"
+                  placeholder={`Default: ${settings.monthly_rate ? (parseFloat(settings.monthly_rate) * 100).toFixed(2) : '5.00'}%`}
+                  value={formData.custom_rate}
+                  onChange={(e) => handleFormChange('custom_rate', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Leave empty to use default rate. Range: {settings.min_rate ? (parseFloat(settings.min_rate) * 100).toFixed(2) : '1.00'}% - {settings.max_rate ? (parseFloat(settings.max_rate) * 100).toFixed(2) : '10.00'}%
+                </p>
+              </div>
+
               <div className="col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Purpose
@@ -262,6 +326,22 @@ export default function ApplicationsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
+
+              {formData.custom_rate && (
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Rate Override Reason *
+                  </label>
+                  <textarea
+                    required
+                    rows={2}
+                    value={formData.rate_override_reason}
+                    onChange={(e) => handleFormChange('rate_override_reason', e.target.value)}
+                    placeholder="Explain why this rate is being overridden..."
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              )}
             </div>
 
             {schedulePreview.length > 0 && (

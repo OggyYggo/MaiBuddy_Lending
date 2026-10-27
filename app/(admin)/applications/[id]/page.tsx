@@ -61,9 +61,10 @@ export default function ApplicationDetailPage() {
 
   const generateSchedulePreview = (app: Application) => {
     try {
+      const rate = (app as any).custom_rate || 0.05
       const scheduleData = generateSchedule({
         principal: new Decimal(app.amount),
-        rate: new Decimal(0.05),
+        rate: new Decimal(rate),
         months: app.term_months,
         style: app.repayment_style,
         startDate: new Date(),
@@ -148,13 +149,15 @@ export default function ApplicationDetailPage() {
     }
 
     if (decision === 'approved') {
-      const { data: settings } = await supabase
-        .from('settings')
-        .select('value')
-        .eq('key', 'monthly_rate')
-        .single()
-
-      const monthlyRate = settings?.value ? parseFloat(settings.value) : 0.05
+      let monthlyRate = (application as any).custom_rate
+      if (!monthlyRate) {
+        const { data: settings } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'monthly_rate')
+          .single()
+        monthlyRate = settings?.value ? parseFloat(settings.value) : 0.05
+      }
 
       const { error: loanError } = await supabase.rpc('create_loan', {
         p_application_id: params.id,
@@ -253,6 +256,22 @@ export default function ApplicationDetailPage() {
               <span className="text-sm text-gray-500">Term:</span>{' '}
               <span className="text-gray-900">{application.term_months} months</span>
             </p>
+            <p>
+              <span className="text-sm text-gray-500">Monthly Rate:</span>{' '}
+              <span className="text-gray-900">
+                {(application as any).custom_rate
+                  ? `${((application as any).custom_rate * 100).toFixed(2)}% (Custom)`
+                  : 'Default Rate'}
+              </span>
+            </p>
+            {(application as any).rate_override_reason && (
+              <p>
+                <span className="text-sm text-gray-500">Rate Override Reason:</span>{' '}
+                <span className="text-gray-900 text-sm italic">
+                  {(application as any).rate_override_reason}
+                </span>
+              </p>
+            )}
             <p>
               <span className="text-sm text-gray-500">Repayment Style:</span>{' '}
               <span className="text-gray-900">
