@@ -20,6 +20,7 @@ export default function PaymentsPage() {
   const [formData, setFormData] = useState({
     loan_id: '',
     amount: '',
+    payment_type: 'principal' as 'principal' | 'interest' | 'penalty',
     method: 'cash' as 'cash' | 'bank' | 'e_wallet' | 'check',
     reference: '',
     received_at: new Date().toISOString().split('T')[0],
@@ -77,6 +78,7 @@ export default function PaymentsPage() {
       .insert({
         loan_id: formData.loan_id,
         amount: parseFloat(formData.amount),
+        payment_type: formData.payment_type,
         method: formData.method,
         reference: formData.reference || null,
         received_at: new Date(formData.received_at).toISOString(),
@@ -102,6 +104,7 @@ export default function PaymentsPage() {
       setFormData({
         loan_id: '',
         amount: '',
+        payment_type: 'principal',
         method: 'cash',
         reference: '',
         received_at: new Date().toISOString().split('T')[0],
@@ -180,6 +183,22 @@ export default function PaymentsPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Payment Type *
+                </label>
+                <select
+                  required
+                  value={formData.payment_type}
+                  onChange={(e) => setFormData({ ...formData, payment_type: e.target.value as any })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="principal">Principal</option>
+                  <option value="interest">Interest</option>
+                  <option value="penalty">Penalty</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
                   Method *
                 </label>
                 <select
@@ -251,6 +270,9 @@ export default function PaymentsPage() {
                   Borrower
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Type
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Amount
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -273,6 +295,11 @@ export default function PaymentsPage() {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">
                       {(payment as any).loans?.borrowers?.full_name || 'Unknown'}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-900 capitalize">
+                      {(payment as any).payment_type || 'principal'}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

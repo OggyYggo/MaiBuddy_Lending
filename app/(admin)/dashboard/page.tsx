@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 
 export default function DashboardPage() {
+  const router = useRouter()
   const [stats, setStats] = useState({
     totalBorrowers: 0,
     activeLoans: 0,
@@ -157,28 +159,43 @@ export default function DashboardPage() {
         <>
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+            <div
+              onClick={() => router.push('/borrowers')}
+              className="bg-white p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
+            >
               <h3 className="text-sm font-medium text-gray-500">Total Borrowers</h3>
               <p className="mt-2 text-3xl font-bold text-gray-900">{stats.totalBorrowers}</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+            <div
+              onClick={() => router.push('/loans')}
+              className="bg-white p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
+            >
               <h3 className="text-sm font-medium text-gray-500">Active Loans</h3>
               <p className="mt-2 text-3xl font-bold text-gray-900">{stats.activeLoans}</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+            <div
+              onClick={() => router.push('/loans')}
+              className="bg-white p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
+            >
               <h3 className="text-sm font-medium text-gray-500">Outstanding Principal</h3>
               <p className="mt-2 text-3xl font-bold text-gray-900">{formatCurrency(stats.outstandingPrincipal)}</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+            <div
+              onClick={() => router.push('/loans?status=overdue')}
+              className="bg-white p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
+            >
               <h3 className="text-sm font-medium text-gray-500">Overdue Loans</h3>
               <p className="mt-2 text-3xl font-bold text-gray-900">{stats.overdueLoans}</p>
               <p className="text-xs text-gray-500 mt-1">{formatCurrency(stats.overdueAmount)}</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+            <div
+              onClick={() => router.push('/applications')}
+              className="bg-white p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
+            >
               <h3 className="text-sm font-medium text-gray-500">Pending Applications</h3>
               <p className="mt-2 text-3xl font-bold text-gray-900">{stats.pendingApplications}</p>
             </div>
@@ -186,17 +203,26 @@ export default function DashboardPage() {
 
           {/* Monthly Performance */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+            <div
+              onClick={() => router.push('/loans')}
+              className="bg-white p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
+            >
               <h3 className="text-sm font-medium text-gray-500">Disbursed This Month</h3>
               <p className="mt-2 text-2xl font-bold text-green-600">{formatCurrency(stats.disbursedMonth)}</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+            <div
+              onClick={() => router.push('/payments')}
+              className="bg-white p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
+            >
               <h3 className="text-sm font-medium text-gray-500">Collected This Month</h3>
               <p className="mt-2 text-2xl font-bold text-blue-600">{formatCurrency(stats.collectedMonth)}</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow border border-gray-200">
+            <div
+              onClick={() => router.push('/reports')}
+              className="bg-white p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
+            >
               <h3 className="text-sm font-medium text-gray-500">Interest Earned This Month</h3>
               <p className="mt-2 text-2xl font-bold text-purple-600">{formatCurrency(stats.interestEarnedMonth)}</p>
             </div>

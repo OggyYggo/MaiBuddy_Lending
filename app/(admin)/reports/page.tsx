@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import type { Database } from '@/types/supabase'
+import * as XLSX from 'xlsx'
 
 type Loan = Database['public']['Tables']['loans']['Row'] & {
   borrowers: Database['public']['Tables']['borrowers']['Row']
@@ -14,6 +15,7 @@ export default function ReportsPage() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -31,99 +33,114 @@ export default function ReportsPage() {
 
   const fetchReportData = async () => {
     setLoading(true)
+    setError(null)
 
-    if (activeTab === 'portfolio') {
-      const { data, error } = await supabase
-        .from('loans')
-        .select('*, borrowers(*)')
-        .order('created_at', { ascending: false })
+    try {
+      if (activeTab === 'portfolio') {
+        const { data, error } = await supabase
+          .from('loans')
+          .select('*, borrowers(*)')
+          .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('Error fetching portfolio:', error)
-      } else {
+        if (error) {
+          throw error
+        }
+        setLoans(data || [])
+      } else if (activeTab === 'interest') {
+        const { data, error } = await supabase
+          .from('ledger_entries')
+          .select('id, loan_id, type, amount, balance_after, created_at, loans(borrowers(full_name))')
+          .eq('type', 'interest')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate)
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          throw error
+        }
+        setLoans(data || [])
+      } else if (activeTab === 'aging') {
+        const { data, error } = await supabase
+          .from('loans')
+          .select('*, borrowers(*)')
+          .eq('status', 'overdue')
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          throw error
+        }
+        setLoans(data || [])
+      } else if (activeTab === 'cashflow') {
+        const { data, error } = await supabase
+          .from('ledger_entries')
+          .select('id, loan_id, type, amount, balance_after, created_at, loans(borrowers(full_name))')
+          .gte('created_at', startDate)
+          .lte('created_at', endDate)
+          .order('created_at', { ascending: false })
+
+        if (error) {
+          throw error
+        }
         setLoans(data || [])
       }
-    } else if (activeTab === 'interest') {
-      const { data, error } = await supabase
-        .from('ledger_entries')
-        .select('*, loans(borrowers(*))')
-        .eq('type', 'interest')
-        .gte('created_at', startDate)
-        .lte('created_at', endDate)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching interest data:', error)
-      } else {
-        setLoans(data || [])
-      }
-    } else if (activeTab === 'aging') {
-      const { data, error } = await supabase
-        .from('loans')
-        .select('*, borrowers(*)')
-        .eq('status', 'overdue')
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching aging data:', error)
-      } else {
-        setLoans(data || [])
-      }
-    } else if (activeTab === 'cashflow') {
-      const { data, error } = await supabase
-        .from('ledger_entries')
-        .select('*, loans(borrowers(*))')
-        .gte('created_at', startDate)
-        .lte('created_at', endDate)
-        .order('created_at', { ascending: false })
-
-      if (error) {
-        console.error('Error fetching cashflow data:', error)
-      } else {
-        setLoans(data || [])
-      }
+    } catch (err: any) {
+      console.error('Error fetching report data:', err)
+      setError(err.message || 'Failed to load report data')
+      setLoans([])
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
-  const exportToCSV = () => {
-    let csv = ''
+  const exportToExcel = () => {
+    let data: any[] = []
     let filename = ''
 
     if (activeTab === 'portfolio') {
-      csv = 'Borrower,Principal,Term,Rate,Style,Status,Disbursed,Maturity\n'
-      loans.forEach((loan: any) => {
-        csv += `"${loan.borrowers?.full_name}","${loan.principal}","${loan.term_months}","${(loan.monthly_rate * 100).toFixed(2)}%","${loan.repayment_style}","${loan.status}","${loan.disbursed_at ? new Date(loan.disbursed_at).toLocaleDateString() : '-'}","${loan.maturity_date ? new Date(loan.maturity_date).toLocaleDateString() : '-'}"\n`
-      })
-      filename = 'portfolio-report.csv'
+      data = loans.map((loan: any) => ({
+        Borrower: loan.borrowers?.full_name || '',
+        Principal: loan.principal,
+        Term: loan.term_months,
+        Rate: `${(loan.monthly_rate * 100).toFixed(2)}%`,
+        Style: loan.repayment_style.replace('_', ' '),
+        Status: formatStatus(loan.status),
+        Disbursed: loan.disbursed_at ? new Date(loan.disbursed_at).toLocaleDateString() : '-',
+        Maturity: loan.maturity_date ? new Date(loan.maturity_date).toLocaleDateString() : '-',
+      }))
+      filename = 'portfolio-report.xlsx'
     } else if (activeTab === 'interest') {
-      csv = 'Date,Borrower,Type,Amount,Balance After\n'
-      loans.forEach((entry: any) => {
-        csv += `"${new Date(entry.created_at).toLocaleDateString()}","${entry.loans?.borrowers?.full_name}","${entry.type}","${entry.amount}","${entry.balance_after}"\n`
-      })
-      filename = 'interest-report.csv'
+      data = loans.map((entry: any) => ({
+        Date: new Date(entry.created_at).toLocaleDateString(),
+        Borrower: entry.loans?.borrowers?.full_name || '',
+        Type: entry.type,
+        Amount: entry.amount,
+        'Balance After': entry.balance_after,
+      }))
+      filename = 'interest-report.xlsx'
     } else if (activeTab === 'aging') {
-      csv = 'Borrower,Principal,Phone,Status,Maturity\n'
-      loans.forEach((loan: any) => {
-        csv += `"${loan.borrowers?.full_name}","${loan.principal}","${loan.borrowers?.phone}","${loan.status}","${loan.maturity_date ? new Date(loan.maturity_date).toLocaleDateString() : '-'}"\n`
-      })
-      filename = 'aging-report.csv'
+      data = loans.map((loan: any) => ({
+        Borrower: loan.borrowers?.full_name || '',
+        Principal: loan.principal,
+        Phone: loan.borrowers?.phone || '',
+        Status: formatStatus(loan.status),
+        Maturity: loan.maturity_date ? new Date(loan.maturity_date).toLocaleDateString() : '-',
+      }))
+      filename = 'aging-report.xlsx'
     } else if (activeTab === 'cashflow') {
-      csv = 'Date,Borrower,Type,Amount,Balance After\n'
-      loans.forEach((entry: any) => {
-        csv += `"${new Date(entry.created_at).toLocaleDateString()}","${entry.loans?.borrowers?.full_name}","${entry.type}","${entry.amount}","${entry.balance_after}"\n`
-      })
-      filename = 'cashflow-report.csv'
+      data = loans.map((entry: any) => ({
+        Date: new Date(entry.created_at).toLocaleDateString(),
+        Borrower: entry.loans?.borrowers?.full_name || '',
+        Type: entry.type,
+        Amount: entry.amount,
+        'Balance After': entry.balance_after,
+      }))
+      filename = 'cashflow-report.xlsx'
     }
 
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = filename
-    a.click()
-    window.URL.revokeObjectURL(url)
+    const worksheet = XLSX.utils.json_to_sheet(data)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Report')
+    XLSX.writeFile(workbook, filename)
   }
 
   const getStatusColor = (status: string) => {
@@ -135,6 +152,21 @@ export default function ReportsPage() {
       written_off: 'bg-gray-100 text-gray-800',
     }
     return colors[status] || 'bg-gray-100 text-gray-800'
+  }
+
+  const formatStatus = (status: string | null | undefined) =>
+    status ? status.replace('_', ' ') : '—'
+
+  const changeTab = (tab: 'portfolio' | 'interest' | 'aging' | 'cashflow') => {
+    setLoans([])
+    setError(null)
+    setActiveTab(tab)
+  }
+
+  const formatCurrency = (value: number | string | null | undefined) => {
+    if (value === null || value === undefined || value === '') return '—'
+    const amount = Number(value)
+    return Number.isFinite(amount) ? amount.toLocaleString() : '—'
   }
 
   return (
@@ -178,7 +210,7 @@ export default function ReportsPage() {
         <div className="border-b border-gray-200">
           <nav className="flex space-x-8 px-6">
             <button
-              onClick={() => setActiveTab('portfolio')}
+              onClick={() => changeTab('portfolio')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'portfolio'
                   ? 'border-indigo-500 text-indigo-600'
@@ -188,7 +220,7 @@ export default function ReportsPage() {
               Portfolio
             </button>
             <button
-              onClick={() => setActiveTab('interest')}
+              onClick={() => changeTab('interest')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'interest'
                   ? 'border-indigo-500 text-indigo-600'
@@ -198,7 +230,7 @@ export default function ReportsPage() {
               Interest Earned
             </button>
             <button
-              onClick={() => setActiveTab('aging')}
+              onClick={() => changeTab('aging')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'aging'
                   ? 'border-indigo-500 text-indigo-600'
@@ -208,7 +240,7 @@ export default function ReportsPage() {
               Aging
             </button>
             <button
-              onClick={() => setActiveTab('cashflow')}
+              onClick={() => changeTab('cashflow')}
               className={`py-4 px-1 border-b-2 font-medium text-sm ${
                 activeTab === 'cashflow'
                   ? 'border-indigo-500 text-indigo-600'
@@ -226,15 +258,22 @@ export default function ReportsPage() {
               {activeTab.replace('_', ' ')} Report
             </h2>
             <button
-              onClick={exportToCSV}
+              onClick={exportToExcel}
               className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
             >
-              Export CSV
+              Export Excel
             </button>
           </div>
 
           {loading ? (
             <div className="text-center py-8">Loading...</div>
+          ) : error ? (
+            <div role="alert" className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+              <p>Error loading report: {error}</p>
+              <button onClick={fetchReportData} className="mt-3 font-medium underline">
+                Try again
+              </button>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -314,7 +353,7 @@ export default function ReportsPage() {
                           {loan.borrowers?.full_name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ₱{loan.principal.toLocaleString()}
+                          ₱{formatCurrency(loan.principal)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {loan.term_months} months
@@ -329,7 +368,7 @@ export default function ReportsPage() {
                           <span
                             className={`px-2 py-1 text-xs rounded-full ${getStatusColor(loan.status)}`}
                           >
-                            {loan.status.replace('_', ' ')}
+                            {formatStatus(loan.status)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -353,10 +392,10 @@ export default function ReportsPage() {
                           {entry.type}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ₱{entry.amount.toLocaleString()}
+                          ₱{formatCurrency(entry.amount)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ₱{entry.balance_after.toLocaleString()}
+                          ₱{formatCurrency(entry.balance_after)}
                         </td>
                       </tr>
                     ))}
@@ -367,7 +406,7 @@ export default function ReportsPage() {
                           {loan.borrowers?.full_name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          ₱{loan.principal.toLocaleString()}
+                          ₱{formatCurrency(loan.principal)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                           {loan.borrowers?.phone}
@@ -376,7 +415,7 @@ export default function ReportsPage() {
                           <span
                             className={`px-2 py-1 text-xs rounded-full ${getStatusColor(loan.status)}`}
                           >
-                            {loan.status.replace('_', ' ')}
+                            {formatStatus(loan.status)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">

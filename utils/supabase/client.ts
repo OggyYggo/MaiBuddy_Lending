@@ -9,12 +9,11 @@ const diagnosticFetch: typeof fetch = async (input, init) => {
     const isDashboardStatsRequest = pathname.startsWith('/rest/v1/v_');
     const isBorrowersRequest = pathname.endsWith('/rest/v1/borrowers');
     if (!response.ok && (isBorrowersRequest || isDashboardStatsRequest)) {
-      console.error(isDashboardStatsRequest ? 'Supabase dashboard statistics request failed:' : 'Supabase borrowers request failed:', {
-        endpoint: pathname,
-        status: response.status,
-        statusText: response.statusText,
-        body: await response.clone().text(),
-      });
+      const body = await response.clone().text();
+      const requestType = isDashboardStatsRequest ? 'dashboard statistics' : 'borrowers';
+      console.error(
+        `Supabase ${requestType} request failed (${response.status} ${response.statusText}) at ${pathname}. Response: ${body || '(empty response body)'}`,
+      );
     }
     return response;
   } catch (error) {

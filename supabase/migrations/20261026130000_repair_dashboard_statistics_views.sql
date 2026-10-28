@@ -153,10 +153,13 @@ SELECT
 CREATE OR REPLACE VIEW v_repeat_borrowers AS
 SELECT
   COALESCE(
-    (SELECT COUNT(DISTINCT borrower_id)
-     FROM loans
-     GROUP BY borrower_id
-     HAVING COUNT(*) >= 2) /
+    (SELECT COUNT(*)
+     FROM (
+       SELECT borrower_id
+       FROM loans
+       GROUP BY borrower_id
+       HAVING COUNT(*) >= 2
+     ) repeat_borrower_groups) /
     NULLIF(
       (SELECT COUNT(DISTINCT borrower_id) FROM loans),
       0

@@ -20,6 +20,7 @@ export default function ApplicationsPage() {
 
   const [formData, setFormData] = useState({
     borrower_id: '',
+    borrower_name: '',
     amount: '',
     term_months: '',
     purpose: '',
@@ -27,6 +28,8 @@ export default function ApplicationsPage() {
     custom_rate: '',
     rate_override_reason: '',
   })
+  const [borrowerSearch, setBorrowerSearch] = useState('')
+  const [showBorrowerDropdown, setShowBorrowerDropdown] = useState(false)
 
   const [schedulePreview, setSchedulePreview] = useState<any[]>([])
 
@@ -148,6 +151,7 @@ export default function ApplicationsPage() {
       setEditingApplicationId(null)
       setFormData({
         borrower_id: '',
+        borrower_name: '',
         amount: '',
         term_months: '',
         purpose: '',
@@ -155,15 +159,18 @@ export default function ApplicationsPage() {
         custom_rate: '',
         rate_override_reason: '',
       })
+      setBorrowerSearch('')
       setSchedulePreview([])
       fetchApplications()
     }
   }
 
   const handleEdit = (application: Application) => {
+    const borrower = borrowers.find((b) => b.id === application.borrower_id)
     setEditingApplicationId(application.id)
     setFormData({
       borrower_id: application.borrower_id,
+      borrower_name: borrower?.full_name || '',
       amount: application.amount.toString(),
       term_months: application.term_months.toString(),
       purpose: application.purpose || '',
@@ -171,6 +178,7 @@ export default function ApplicationsPage() {
       custom_rate: (application as any).custom_rate?.toString() || '',
       rate_override_reason: (application as any).rate_override_reason || '',
     })
+    setBorrowerSearch(borrower ? `${borrower.full_name} - ${borrower.phone}` : '')
     updateSchedulePreview({
       borrower_id: application.borrower_id,
       amount: application.amount.toString(),
@@ -218,7 +226,8 @@ export default function ApplicationsPage() {
         <button
           onClick={() => {
             setEditingApplicationId(null)
-            setFormData({ borrower_id: '', amount: '', term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL', custom_rate: '', rate_override_reason: '' })
+            setFormData({ borrower_id: '', borrower_name: '', amount: '', term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL', custom_rate: '', rate_override_reason: '' })
+            setBorrowerSearch('')
             setSchedulePreview([])
             setShowForm(true)
           }}
@@ -233,23 +242,45 @@ export default function ApplicationsPage() {
           <h2 className="text-lg font-semibold mb-4">{editingApplicationId ? 'Edit Loan Application' : 'New Loan Application'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="relative">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Borrower *
                 </label>
-                <select
+                <input
+                  type="text"
                   required
-                  value={formData.borrower_id}
-                  onChange={(e) => handleFormChange('borrower_id', e.target.value)}
+                  value={borrowerSearch}
+                  onChange={(e) => {
+                    setBorrowerSearch(e.target.value)
+                    setShowBorrowerDropdown(true)
+                  }}
+                  onFocus={() => setShowBorrowerDropdown(true)}
+                  onBlur={() => setTimeout(() => setShowBorrowerDropdown(false), 200)}
+                  placeholder="Search borrower by name or phone..."
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="">Select a borrower</option>
-                  {borrowers.map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.full_name} - {b.phone}
-                    </option>
-                  ))}
-                </select>
+                />
+                {showBorrowerDropdown && (
+                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                    {borrowers
+                      .filter((b) =>
+                        b.full_name.toLowerCase().includes(borrowerSearch.toLowerCase()) ||
+                        b.phone.includes(borrowerSearch)
+                      )
+                      .map((b) => (
+                        <div
+                          key={b.id}
+                          onClick={() => {
+                            setBorrowerSearch(`${b.full_name} - ${b.phone}`)
+                            handleFormChange('borrower_id', b.id)
+                            setShowBorrowerDropdown(false)
+                          }}
+                          className="px-3 py-2 hover:bg-gray-100 cursor-pointer"
+                        >
+                          {b.full_name} - {b.phone}
+                        </div>
+                      ))}
+                  </div>
+                )}
               </div>
 
               <div>
