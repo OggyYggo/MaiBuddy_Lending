@@ -121,7 +121,34 @@ export default function BorrowersPage() {
   }
 
   const handleDelete = async (borrower: Borrower) => {
-    if (!window.confirm(`Delete borrower ${borrower.full_name}? This is only possible if the borrower has no applications or loans.`)) {
+    const [applicationsResult, loansResult] = await Promise.all([
+      supabase
+        .from('applications')
+        .select('id', { count: 'exact', head: true })
+        .eq('borrower_id', borrower.id),
+      supabase
+        .from('loans')
+        .select('id', { count: 'exact', head: true })
+        .eq('borrower_id', borrower.id),
+    ])
+
+    if (applicationsResult.error || loansResult.error) {
+      const error = applicationsResult.error || loansResult.error
+      console.error('Error checking borrower references before deletion:', error)
+      alert(`Could not verify whether ${borrower.full_name} has linked applications or loans. No data was deleted.`)
+      return
+    }
+
+    const applicationCount = applicationsResult.count || 0
+    const loanCount = loansResult.count || 0
+    if (applicationCount > 0 || loanCount > 0) {
+      alert(
+        `Cannot delete ${borrower.full_name}: this borrower is linked to ${applicationCount} application${applicationCount === 1 ? '' : 's'} and ${loanCount} loan${loanCount === 1 ? '' : 's'}. Keep the borrower record to preserve financial history.`,
+      )
+      return
+    }
+
+    if (!window.confirm(`Delete borrower ${borrower.full_name}? This cannot be undone.`)) {
       return
     }
 
@@ -132,6 +159,10 @@ export default function BorrowersPage() {
       .select('id')
     if (error) {
       console.error('Error deleting borrower:', error)
+      if (error.code === '23503') {
+        alert('This borrower is linked to an application or loan and cannot be deleted. Keep the record to preserve financial history.')
+        return
+      }
       alert(`Could not delete borrower: ${error.message}`)
       return
     }
@@ -151,7 +182,10 @@ export default function BorrowersPage() {
   return (
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Borrowers</h1>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800 md:text-2xl">Borrowers</h1>
+          <p className="mt-1 text-sm text-slate-500">Manage borrower profiles and contact details.</p>
+        </div>
         <button
           onClick={() => {
             setEditingBorrowerId(null)
@@ -161,7 +195,7 @@ export default function BorrowersPage() {
             })
             setShowForm(true)
           }}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm md:text-base"
+          className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 md:text-base"
         >
           Add Borrower
         </button>
@@ -173,7 +207,7 @@ export default function BorrowersPage() {
           placeholder="Search by name or phone..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          className="w-full max-w-md rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
         />
       </div>
 
@@ -327,10 +361,10 @@ export default function BorrowersPage() {
       {loading ? (
         <div className="text-center py-8">Loading...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
-            <table className="w-full min-w-[760px] divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="w-full min-w-[760px] divide-y divide-slate-100">
+              <thead className="bg-slate-50/80">
                 <tr>
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Name
@@ -349,9 +383,9 @@ export default function BorrowersPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {filteredBorrowers.map((borrower) => (
-                  <tr key={borrower.id} className="hover:bg-gray-50">
+                  <tr key={borrower.id} className="transition-colors hover:bg-slate-50/70">
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{borrower.full_name}</div>
                     </td>

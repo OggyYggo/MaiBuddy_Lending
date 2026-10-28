@@ -3,6 +3,19 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
+import {
+  ArrowUpRight,
+  Banknote,
+  BadgeCheck,
+  ClipboardCheck,
+  Landmark,
+  Repeat,
+  ShieldAlert,
+  TrendingUp,
+  TriangleAlert,
+  Users,
+  Wallet,
+} from 'lucide-react'
 
 export default function DashboardPage() {
   const router = useRouter()
@@ -142,9 +155,31 @@ export default function DashboardPage() {
     alert('Reminder text copied to clipboard')
   }
 
+  const primaryMetrics = [
+    { title: 'Total Borrowers', value: stats.totalBorrowers.toLocaleString(), href: '/borrowers', icon: Users, tone: 'bg-indigo-50 text-indigo-600' },
+    { title: 'Active Loans', value: stats.activeLoans.toLocaleString(), href: '/loans', icon: Landmark, tone: 'bg-sky-50 text-sky-600' },
+    { title: 'Outstanding Principal', value: formatCurrency(stats.outstandingPrincipal), href: '/loans', icon: Wallet, tone: 'bg-violet-50 text-violet-600' },
+    { title: 'Overdue Loans', value: stats.overdueLoans.toLocaleString(), detail: `${formatCurrency(stats.overdueAmount)} overdue`, href: '/loans?status=overdue', icon: TriangleAlert, tone: 'bg-rose-50 text-rose-600' },
+    { title: 'Pending Applications', value: stats.pendingApplications.toLocaleString(), href: '/applications', icon: ClipboardCheck, tone: 'bg-amber-50 text-amber-600' },
+  ]
+  const monthlyMetrics = [
+    { title: 'Disbursed This Month', value: formatCurrency(stats.disbursedMonth), href: '/loans', icon: Banknote, tone: 'bg-emerald-50 text-emerald-600' },
+    { title: 'Collected This Month', value: formatCurrency(stats.collectedMonth), href: '/payments', icon: Wallet, tone: 'bg-sky-50 text-sky-600' },
+    { title: 'Interest Earned This Month', value: formatCurrency(stats.interestEarnedMonth), href: '/reports', icon: TrendingUp, tone: 'bg-violet-50 text-violet-600' },
+  ]
+  const riskMetrics = [
+    { title: 'Portfolio at Risk (30+ days)', value: `${stats.portfolioAtRisk.toFixed(1)}%`, icon: ShieldAlert, tone: 'bg-rose-50 text-rose-600' },
+    { title: 'Approval Rate', value: `${stats.approvalRate.toFixed(1)}%`, icon: BadgeCheck, tone: 'bg-emerald-50 text-emerald-600' },
+    { title: 'Write-offs', value: `${stats.writeOffs.toFixed(1)}%`, icon: TriangleAlert, tone: 'bg-amber-50 text-amber-600' },
+    { title: 'Repeat Borrowers', value: `${stats.repeatBorrowers.toFixed(1)}%`, icon: Repeat, tone: 'bg-indigo-50 text-indigo-600' },
+  ]
+
   return (
     <div>
-      <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
+      <div className="mb-6">
+        <h1 className="text-xl font-bold tracking-tight text-slate-800 md:text-2xl">Dashboard</h1>
+        <p className="mt-1 text-sm text-slate-500">A quick view of your lending portfolio and collections.</p>
+      </div>
 
       {loading ? (
         <div className="text-center py-8">Loading...</div>
@@ -158,97 +193,61 @@ export default function DashboardPage() {
       ) : (
         <>
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 md:gap-6 mb-8">
-            <div
-              onClick={() => router.push('/borrowers')}
-              className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
-            >
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Total Borrowers</h3>
-              <p className="mt-2 text-2xl md:text-3xl font-bold text-gray-900">{stats.totalBorrowers}</p>
-            </div>
-
-            <div
-              onClick={() => router.push('/loans')}
-              className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
-            >
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Active Loans</h3>
-              <p className="mt-2 text-2xl md:text-3xl font-bold text-gray-900">{stats.activeLoans}</p>
-            </div>
-
-            <div
-              onClick={() => router.push('/loans')}
-              className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
-            >
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Outstanding Principal</h3>
-              <p className="mt-2 text-2xl md:text-3xl font-bold text-gray-900">{formatCurrency(stats.outstandingPrincipal)}</p>
-            </div>
-
-            <div
-              onClick={() => router.push('/loans?status=overdue')}
-              className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
-            >
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Overdue Loans</h3>
-              <p className="mt-2 text-2xl md:text-3xl font-bold text-gray-900">{stats.overdueLoans}</p>
-              <p className="text-xs text-gray-500 mt-1">{formatCurrency(stats.overdueAmount)}</p>
-            </div>
-
-            <div
-              onClick={() => router.push('/applications')}
-              className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
-            >
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Pending Applications</h3>
-              <p className="mt-2 text-2xl md:text-3xl font-bold text-gray-900">{stats.pendingApplications}</p>
-            </div>
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 md:gap-5">
+            {primaryMetrics.map(({ title, value, detail, href, icon: Icon, tone }) => (
+              <button
+                key={title}
+                type="button"
+                onClick={() => router.push(href)}
+                className="group min-w-0 rounded-2xl border border-slate-100 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-100 hover:shadow-md md:p-6"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <ArrowUpRight className="h-4 w-4 text-slate-300 transition group-hover:text-indigo-500" />
+                </div>
+                <p className="mt-5 text-sm font-medium text-slate-500">{title}</p>
+                <p className="mt-1 truncate text-2xl font-bold tracking-tight text-slate-800 md:text-[1.75rem]">{value}</p>
+                {detail && <p className="mt-1 text-xs font-medium text-rose-600">{detail}</p>}
+              </button>
+            ))}
           </div>
 
           {/* Monthly Performance */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6 mb-8">
-            <div
-              onClick={() => router.push('/loans')}
-              className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
-            >
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Disbursed This Month</h3>
-              <p className="mt-2 text-xl md:text-2xl font-bold text-green-600">{formatCurrency(stats.disbursedMonth)}</p>
-            </div>
-
-            <div
-              onClick={() => router.push('/payments')}
-              className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
-            >
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Collected This Month</h3>
-              <p className="mt-2 text-xl md:text-2xl font-bold text-blue-600">{formatCurrency(stats.collectedMonth)}</p>
-            </div>
-
-            <div
-              onClick={() => router.push('/reports')}
-              className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 cursor-pointer hover:shadow-lg hover:border-indigo-300 transition-all"
-            >
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Interest Earned This Month</h3>
-              <p className="mt-2 text-xl md:text-2xl font-bold text-purple-600">{formatCurrency(stats.interestEarnedMonth)}</p>
-            </div>
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-5">
+            {monthlyMetrics.map(({ title, value, href, icon: Icon, tone }) => (
+              <button
+                key={title}
+                type="button"
+                onClick={() => router.push(href)}
+                className="group flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-5 text-left shadow-sm transition hover:border-indigo-100 hover:shadow-md md:p-6"
+              >
+                <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium text-slate-500">{title}</p>
+                  <p className="mt-1 truncate text-xl font-bold tracking-tight text-slate-800 md:text-2xl">{value}</p>
+                </div>
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-slate-300 transition group-hover:text-indigo-500" />
+              </button>
+            ))}
           </div>
 
           {/* Risk Metrics */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
-            <div className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200">
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Portfolio at Risk (30+ days)</h3>
-              <p className="mt-2 text-xl md:text-2xl font-bold text-gray-900">{stats.portfolioAtRisk.toFixed(1)}%</p>
-            </div>
-
-            <div className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200">
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Approval Rate</h3>
-              <p className="mt-2 text-xl md:text-2xl font-bold text-gray-900">{stats.approvalRate.toFixed(1)}%</p>
-            </div>
-
-            <div className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200">
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Write-offs</h3>
-              <p className="mt-2 text-xl md:text-2xl font-bold text-gray-900">{stats.writeOffs.toFixed(1)}%</p>
-            </div>
-
-            <div className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200">
-              <h3 className="text-xs md:text-sm font-medium text-gray-500">Repeat Borrowers</h3>
-              <p className="mt-2 text-xl md:text-2xl font-bold text-gray-900">{stats.repeatBorrowers.toFixed(1)}%</p>
-            </div>
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-5">
+            {riskMetrics.map(({ title, value, icon: Icon, tone }) => (
+              <div key={title} className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm md:p-6">
+                <div className="flex items-center gap-3">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${tone}`}>
+                    <Icon className="h-[18px] w-[18px]" />
+                  </div>
+                  <p className="text-sm font-medium text-slate-500">{title}</p>
+                </div>
+                <p className="mt-4 text-2xl font-bold tracking-tight text-slate-800">{value}</p>
+              </div>
+            ))}
           </div>
 
           {/* Aging Buckets */}

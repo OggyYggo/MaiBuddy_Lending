@@ -98,39 +98,21 @@ export default function LoanDetailPage() {
   const handleDisbursement = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.rpc('record_loan_disbursement', {
+      p_loan_id: params.id,
+      p_disbursed_at: new Date(disbursementData.date).toISOString(),
+    })
 
-    const { error: loanError } = await supabase
-      .from('loans')
-      .update({
-        disbursed_at: new Date(disbursementData.date).toISOString(),
-        status: 'active',
-      })
-      .eq('id', params.id)
-
-    if (loanError) {
-      console.error('Error updating loan:', loanError)
-      alert('Failed to record disbursement')
+    if (error) {
+      console.error('Error recording disbursement:', error.message, error)
+      alert(`Failed to record disbursement: ${error.message}`)
       return
     }
 
-    const { error: ledgerError } = await supabase.from('ledger_entries').insert({
-      loan_id: params.id,
-      type: 'disbursement',
-      amount: loan?.principal,
-      balance_after: loan?.principal,
-      created_by: user?.id,
-    })
-
-    if (ledgerError) {
-      console.error('Error creating ledger entry:', ledgerError)
-      alert('Disbursement recorded but ledger entry failed')
-    } else {
-      setShowDisburse(false)
-      fetchLoan()
-      fetchSchedule()
-      fetchLedger()
-    }
+    setShowDisburse(false)
+    fetchLoan()
+    fetchSchedule()
+    fetchLedger()
   }
 
   const handlePayoffQuote = async () => {
@@ -234,6 +216,14 @@ export default function LoanDetailPage() {
 
           {loan.status === 'active' && (
             <div className="mt-4 pt-4 border-t">
+              {!ledger.some((entry) => entry.type === 'disbursement') && (
+                <button
+                  onClick={() => setShowDisburse(true)}
+                  className="mr-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                >
+                  Complete Disbursement Record
+                </button>
+              )}
               <button
                 onClick={handlePayoffQuote}
                 className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"

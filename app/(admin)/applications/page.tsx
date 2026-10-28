@@ -223,7 +223,10 @@ export default function ApplicationsPage() {
   return (
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Applications</h1>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800 md:text-2xl">Applications</h1>
+          <p className="mt-1 text-sm text-slate-500">Review requests and track application decisions.</p>
+        </div>
         <button
           onClick={() => {
             setEditingApplicationId(null)
@@ -232,7 +235,7 @@ export default function ApplicationsPage() {
             setSchedulePreview([])
             setShowForm(true)
           }}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm md:text-base"
+          className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 md:text-base"
         >
           New Application
         </button>
@@ -380,8 +383,8 @@ export default function ApplicationsPage() {
               <div className="mt-4 border-t pt-4">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Schedule Preview</h3>
                 <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
-                  <table className="w-full min-w-[760px] divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="w-full min-w-[760px] divide-y divide-slate-100">
+                    <thead className="bg-slate-50/80">
                       <tr>
                         <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                           #
@@ -400,7 +403,7 @@ export default function ApplicationsPage() {
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-slate-100 bg-white">
                       {schedulePreview.map((item, idx) => (
                         <tr key={idx}>
                           <td className="px-4 py-2 text-sm">{item.installmentNo}</td>
@@ -456,10 +459,10 @@ export default function ApplicationsPage() {
       {loading ? (
         <div className="text-center py-8">Loading...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
-            <table className="w-full min-w-[900px] divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="w-full min-w-[900px] divide-y divide-slate-100">
+              <thead className="bg-slate-50/80">
                 <tr>
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Borrower
@@ -481,9 +484,9 @@ export default function ApplicationsPage() {
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {applications.map((app) => (
-                  <tr key={app.id} className="hover:bg-gray-50">
+                  <tr key={app.id} className="transition-colors hover:bg-slate-50/70">
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {(app as any).borrowers?.full_name || 'Unknown'}

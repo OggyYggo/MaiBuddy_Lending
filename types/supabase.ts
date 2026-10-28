@@ -433,6 +433,21 @@ export interface Database {
         }
       }
     }
+    Functions: {
+      record_payment: {
+        Args: {
+          p_payment_id: string
+          p_loan_id: string
+          p_amount: number
+          p_received_at: string
+        }
+        Returns: undefined
+      }
+      record_loan_disbursement: {
+        Args: { p_loan_id: string; p_disbursed_at: string }
+        Returns: undefined
+      }
+    }
     Views: {
       v_active_loans: { Row: { count: number }; Relationships: [] }
       v_outstanding_principal: { Row: { total: number }; Relationships: [] }

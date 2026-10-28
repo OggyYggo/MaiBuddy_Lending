@@ -15,6 +15,7 @@ export default function PaymentsPage() {
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [actingOnPaymentId, setActingOnPaymentId] = useState<string | null>(null)
   const supabase = createClient()
 
   const [formData, setFormData] = useState({
@@ -93,12 +94,20 @@ export default function PaymentsPage() {
       alert('Failed to create payment')
     } else {
       // Auto-confirm for now (in production, use maker-checker)
-      await supabase.rpc('record_payment', {
+      const { error: recordError } = await supabase.rpc('record_payment', {
         p_payment_id: payment.id,
         p_loan_id: formData.loan_id,
         p_amount: parseFloat(formData.amount),
         p_received_at: new Date(formData.received_at).toISOString(),
       })
+
+      if (recordError) {
+        const errorMessage = formatSupabaseError(recordError)
+        console.error(`Error posting payment to the loan ledger: ${errorMessage}`)
+        alert(`Payment was saved as pending but was not posted to the ledger: ${errorMessage}`)
+        fetchPayments()
+        return
+      }
 
       setShowForm(false)
       setFormData({
@@ -119,15 +128,68 @@ export default function PaymentsPage() {
     rejected: 'bg-red-100 text-red-800',
   }
 
+  const formatSupabaseError = (error: {
+    message?: string
+    code?: string
+    details?: string
+    hint?: string
+  }) => [
+    error.message || String(error),
+    error.code && `code: ${error.code}`,
+    error.details && `details: ${error.details}`,
+    error.hint && `hint: ${error.hint}`,
+  ].filter(Boolean).join(' | ')
+
+  const voidPendingPayment = async (payment: Payment) => {
+    const reason = window.prompt('Enter a reason for voiding this pending payment:')
+    if (!reason?.trim()) return
+    if (!window.confirm('Void this pending payment? It will be marked rejected and recorded in the audit log.')) return
+
+    setActingOnPaymentId(payment.id)
+    const { error } = await supabase.rpc('void_pending_payment', {
+      p_payment_id: payment.id,
+      p_reason: reason.trim(),
+    })
+    if (error) {
+      console.error('Error voiding pending payment:', error)
+      alert(`Could not void payment: ${error.message}. Confirm the safe loan actions migration has been applied.`)
+    } else {
+      await fetchPayments()
+    }
+    setActingOnPaymentId(null)
+  }
+
+  const postPendingPayment = async (payment: Payment) => {
+    setActingOnPaymentId(payment.id)
+    const { error } = await supabase.rpc('record_payment', {
+      p_payment_id: payment.id,
+      p_loan_id: payment.loan_id,
+      p_amount: payment.amount,
+      p_received_at: payment.received_at,
+    })
+
+    if (error) {
+      const errorMessage = formatSupabaseError(error)
+      console.error(`Error posting pending payment: ${errorMessage}`)
+      alert(`Could not post payment: ${errorMessage}`)
+    } else {
+      await fetchPayments()
+    }
+    setActingOnPaymentId(null)
+  }
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Payments</h1>
+        <div>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800 md:text-2xl">Payments</h1>
+          <p className="mt-1 text-sm text-slate-500">Record incoming payments and review their status.</p>
+        </div>
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 w-full sm:w-auto"
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100 sm:w-auto"
           >
             <option value="all">All Status</option>
             <option value="pending">Pending</option>
@@ -136,7 +198,7 @@ export default function PaymentsPage() {
           </select>
           <button
             onClick={() => setShowForm(true)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm md:text-base"
+            className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 md:text-base"
           >
             Record Payment
           </button>
@@ -262,10 +324,10 @@ export default function PaymentsPage() {
       {loading ? (
         <div className="text-center py-8">Loading...</div>
       ) : (
-        <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
-            <table className="w-full min-w-[900px] divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="w-full min-w-[900px] divide-y divide-slate-100">
+              <thead className="bg-slate-50/80">
                 <tr>
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Borrower
@@ -288,11 +350,14 @@ export default function PaymentsPage() {
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-slate-100 bg-white">
                 {payments.map((payment) => (
-                  <tr key={payment.id} className="hover:bg-gray-50">
+                  <tr key={payment.id} className="transition-colors hover:bg-slate-50/70">
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">
                         {(payment as any).loans?.borrowers?.full_name || 'Unknown'}
@@ -327,6 +392,34 @@ export default function PaymentsPage() {
                       >
                         {payment.status}
                       </span>
+                    </td>
+                    <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <a
+                        href={`/loans/${payment.loan_id}`}
+                        className="mr-3 text-indigo-600 hover:text-indigo-800"
+                      >
+                        View loan
+                      </a>
+                      {payment.status === 'pending' && (
+                        <>
+                          <button
+                            type="button"
+                            disabled={actingOnPaymentId === payment.id}
+                            onClick={() => postPendingPayment(payment)}
+                            className="mr-3 text-green-600 hover:text-green-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {actingOnPaymentId === payment.id ? 'Processing…' : 'Post'}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={actingOnPaymentId === payment.id}
+                            onClick={() => voidPendingPayment(payment)}
+                            className="text-rose-600 hover:text-rose-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {actingOnPaymentId === payment.id ? 'Processing…' : 'Void'}
+                          </button>
+                        </>
+                      )}
                     </td>
                   </tr>
                 ))}
