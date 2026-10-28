@@ -62,10 +62,10 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-900">
-      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-lg shadow">
+    <div className="flex min-h-screen items-center justify-center bg-gray-50 text-gray-900 px-4">
+      <div className="w-full max-w-md space-y-8 bg-white p-6 md:p-8 rounded-lg shadow">
         <div>
-          <h2 className="text-3xl font-bold text-center text-gray-900">
+          <h2 className="text-2xl md:text-3xl font-bold text-center text-gray-900">
             Mai Lending Admin
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">

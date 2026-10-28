@@ -150,8 +150,8 @@ export default function BorrowersPage() {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Borrowers</h1>
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+        <h1 className="text-xl md:text-2xl font-bold text-gray-900">Borrowers</h1>
         <button
           onClick={() => {
             setEditingBorrowerId(null)
@@ -161,7 +161,7 @@ export default function BorrowersPage() {
             })
             setShowForm(true)
           }}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm md:text-base"
         >
           Add Borrower
         </button>
@@ -178,10 +178,10 @@ export default function BorrowersPage() {
       </div>
 
       {showForm && (
-        <div className="bg-white p-6 rounded-lg shadow border border-gray-200 mb-6">
-          <h2 className="text-lg font-semibold mb-4">{editingBorrowerId ? 'Edit Borrower' : 'Add New Borrower'}</h2>
+        <div className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 mb-6">
+          <h2 className="text-base md:text-lg font-semibold mb-4">{editingBorrowerId ? 'Edit Borrower' : 'Add New Borrower'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Full Name *
@@ -296,7 +296,7 @@ export default function BorrowersPage() {
               />
             </div>
 
-            <div className="flex space-x-3">
+            <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
               <button
                 type="submit"
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -328,69 +328,71 @@ export default function BorrowersPage() {
         <div className="text-center py-8">Loading...</div>
       ) : (
         <div className="bg-white rounded-lg shadow border border-gray-200 overflow-hidden">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Phone
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Address
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Monthly Income
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredBorrowers.map((borrower) => (
-                <tr key={borrower.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{borrower.full_name}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{borrower.phone}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">{borrower.address}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-500">
-                      {borrower.monthly_income ? `₱${borrower.monthly_income.toLocaleString()}` : '-'}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <a
-                      href={`/borrowers/${borrower.id}`}
-                      className="text-indigo-600 hover:text-indigo-900"
-                    >
-                      View
-                    </a>
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(borrower)}
-                      className="ml-3 text-indigo-600 hover:text-indigo-900"
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(borrower)}
-                      className="ml-3 text-red-600 hover:text-red-800"
-                    >
-                      Delete
-                    </button>
-                  </td>
+          <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+            <table className="w-full min-w-[760px] divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Phone
+                  </th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                    Address
+                  </th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                    Monthly Income
+                  </th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredBorrowers.map((borrower) => (
+                  <tr key={borrower.id} className="hover:bg-gray-50">
+                    <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{borrower.full_name}</div>
+                    </td>
+                    <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-500">{borrower.phone}</div>
+                    </td>
+                    <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
+                      <div className="text-sm text-gray-500">{borrower.address}</div>
+                    </td>
+                    <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                      <div className="text-sm text-gray-500">
+                        {borrower.monthly_income ? `₱${borrower.monthly_income.toLocaleString()}` : '-'}
+                      </div>
+                    </td>
+                    <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <a
+                        href={`/borrowers/${borrower.id}`}
+                        className="text-indigo-600 hover:text-indigo-900"
+                      >
+                        View
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(borrower)}
+                        className="ml-2 md:ml-3 text-indigo-600 hover:text-indigo-900"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(borrower)}
+                        className="ml-2 md:ml-3 text-red-600 hover:text-red-800"
+                      >
+                        Delete
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
           {filteredBorrowers.length === 0 && (
             <div className="text-center py-8 text-gray-500">No borrowers found</div>

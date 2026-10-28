@@ -165,15 +165,15 @@ export default function CollectionsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">Collections</h1>
+      <h1 className="text-xl md:text-2xl font-bold text-gray-900 mb-6">Collections</h1>
 
       {/* Aging Buckets Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
         {agingBuckets.map((bucket) => (
-          <div key={bucket.bucket} className="bg-white p-6 rounded-lg shadow border border-gray-200">
-            <h3 className="text-sm font-medium text-gray-500 mb-2">{bucket.bucket}</h3>
-            <p className="text-2xl font-bold text-gray-900">{bucket.loan_count} loans</p>
-            <p className="text-sm text-gray-600 mt-1">
+          <div key={bucket.bucket} className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200">
+            <h3 className="text-xs md:text-sm font-medium text-gray-500 mb-2">{bucket.bucket}</h3>
+            <p className="text-xl md:text-2xl font-bold text-gray-900">{bucket.loan_count} loans</p>
+            <p className="text-xs md:text-sm text-gray-600 mt-1">
               ₱{bucket.total_amount?.toLocaleString() || 0}
             </p>
           </div>
@@ -182,92 +182,94 @@ export default function CollectionsPage() {
 
       {/* Overdue Loans List */}
       <div className="bg-white rounded-lg shadow border border-gray-200 mb-6">
-        <h2 className="text-lg font-semibold p-6 border-b border-gray-200">Overdue Loans</h2>
+        <h2 className="text-base md:text-lg font-semibold p-4 md:p-6 border-b border-gray-200">Overdue Loans</h2>
 
         {loading ? (
           <div className="text-center py-8">Loading...</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Borrower
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Phone
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Principal
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Days Late
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Aging Bucket
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {overdueLoans.map((loan) => {
-                  const daysLate = getDaysLate(loan)
-                  const bucket = getAgingBucket(daysLate)
-                  return (
-                    <tr key={loan.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-gray-900">
-                          {(loan as any).borrowers?.full_name || 'Unknown'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-500">
-                          {(loan as any).borrowers?.phone || '-'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          ₱{loan.principal.toLocaleString()}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900 font-medium">{daysLate}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-1 text-xs rounded-full ${bucketColors[bucket]}`}
-                        >
-                          {bucket}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <button
-                          onClick={() => handleSelectLoan(loan)}
-                          className="text-indigo-600 hover:text-indigo-900"
-                        >
-                          Add Note
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+          <>
+            <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+              <table className="min-w-[600px] divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Borrower
+                    </th>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                      Phone
+                    </th>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Principal
+                    </th>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Days Late
+                    </th>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                      Aging Bucket
+                    </th>
+                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {overdueLoans.map((loan) => {
+                    const daysLate = getDaysLate(loan)
+                    const bucket = getAgingBucket(daysLate)
+                    return (
+                      <tr key={loan.id} className="hover:bg-gray-50">
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm font-medium text-gray-900">
+                            {(loan as any).borrowers?.full_name || 'Unknown'}
+                          </div>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
+                          <div className="text-sm text-gray-500">
+                            {(loan as any).borrowers?.phone || '-'}
+                          </div>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            ₱{loan.principal.toLocaleString()}
+                          </div>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 font-medium">{daysLate}</div>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                          <span
+                            className={`px-2 py-1 text-xs rounded-full ${bucketColors[bucket]}`}
+                          >
+                            {bucket}
+                          </span>
+                        </td>
+                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <button
+                            onClick={() => handleSelectLoan(loan)}
+                            className="text-indigo-600 hover:text-indigo-900"
+                          >
+                            Add Note
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
 
             {overdueLoans.length === 0 && (
               <div className="text-center py-8 text-gray-500">No overdue loans</div>
             )}
-          </div>
+          </>
         )}
       </div>
 
       {/* Collection Notes Panel */}
       {showNotes && selectedLoan && (
         <div className="bg-white rounded-lg shadow border border-gray-200">
-          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-            <h2 className="text-lg font-semibold">
+          <div className="p-4 md:p-6 border-b border-gray-200 flex justify-between items-center">
+            <h2 className="text-base md:text-lg font-semibold">
               Collection Notes - {(selectedLoan as any).borrowers?.full_name}
             </h2>
             <button
@@ -278,7 +280,7 @@ export default function CollectionsPage() {
             </button>
           </div>
 
-          <div className="p-6">
+          <div className="p-4 md:p-6">
             {/* Add Note Form */}
             <form onSubmit={handleAddNote} className="mb-6 space-y-4">
               <div>
@@ -306,7 +308,7 @@ export default function CollectionsPage() {
                 />
               </div>
 
-              <div className="flex gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="submit"
                   className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
@@ -336,8 +338,8 @@ export default function CollectionsPage() {
               ) : (
                 collectionNotes.map((note) => (
                   <div key={note.id} className="border-l-4 border-indigo-500 pl-4 py-2">
-                    <div className="flex justify-between items-start">
-                      <div>
+                    <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
+                      <div className="flex-1">
                         <p className="text-sm text-gray-900">{note.note}</p>
                         {note.promise_date && (
                           <p className="text-xs text-gray-500 mt-1">

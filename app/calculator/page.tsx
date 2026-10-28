@@ -55,17 +55,17 @@ export default function CalculatorPage() {
   const totalPayment = schedule.reduce((sum, item) => sum.add(item.totalDue), new Decimal(0))
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12 px-4">
+    <div className="min-h-screen bg-gray-50 py-8 md:py-12 px-4">
       <div className="max-w-6xl mx-auto">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Loan Calculator</h1>
-          <p className="text-gray-600">Calculate your loan repayment schedule</p>
+        <div className="text-center mb-6 md:mb-8">
+          <h1 className="text-2xl md:text-4xl font-bold text-gray-900 mb-2">Loan Calculator</h1>
+          <p className="text-sm md:text-base text-gray-600">Calculate your loan repayment schedule</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-lg font-semibold mb-4">Loan Parameters</h2>
+            <div className="bg-white rounded-lg shadow p-4 md:p-6">
+              <h2 className="text-base md:text-lg font-semibold mb-4">Loan Parameters</h2>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -138,8 +138,8 @@ export default function CalculatorPage() {
             </div>
 
             {schedule.length > 0 && (
-              <div className="bg-white rounded-lg shadow p-6 mt-6">
-                <h2 className="text-lg font-semibold mb-4">Summary</h2>
+              <div className="bg-white rounded-lg shadow p-4 md:p-6 mt-4 md:mt-6">
+                <h2 className="text-base md:text-lg font-semibold mb-4">Summary</h2>
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Principal:</span>
@@ -165,28 +165,28 @@ export default function CalculatorPage() {
 
           <div className="lg:col-span-2">
             {schedule.length > 0 ? (
-              <div className="bg-white rounded-lg shadow p-6">
-                <h2 className="text-lg font-semibold mb-4">Payment Schedule</h2>
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+              <div className="bg-white rounded-lg shadow p-4 md:p-6">
+                <h2 className="text-base md:text-lg font-semibold mb-4">Payment Schedule</h2>
+                <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
+                  <table className="min-w-[600px] divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           #
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           Due Date
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">
                           Principal
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           Interest
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase">
                           Total
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                        <th className="px-3 md:px-4 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">
                           Balance
                         </th>
                       </tr>
@@ -194,20 +194,20 @@ export default function CalculatorPage() {
                     <tbody className="bg-white divide-y divide-gray-200">
                       {schedule.map((item, idx) => (
                         <tr key={idx} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm font-medium">{item.installmentNo}</td>
-                          <td className="px-4 py-3 text-sm">
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-sm font-medium">{item.installmentNo}</td>
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-sm">
                             {new Date(item.dueDate).toLocaleDateString()}
                           </td>
-                          <td className="px-4 py-3 text-sm">
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-sm hidden sm:table-cell">
                             ₱{item.principalDue.toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 text-sm text-indigo-600">
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-sm text-indigo-600">
                             ₱{item.interestDue.toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium">
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-sm font-medium">
                             ₱{item.totalDue.toLocaleString()}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600">
+                          <td className="px-3 md:px-4 py-2 md:py-3 text-sm text-gray-600 hidden md:table-cell">
                             ₱{item.balanceAfter.toLocaleString()}
                           </td>
                         </tr>
@@ -217,14 +217,14 @@ export default function CalculatorPage() {
                 </div>
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow p-12 text-center">
+              <div className="bg-white rounded-lg shadow p-8 md:p-12 text-center">
                 <div className="text-gray-400 mb-4">
-                  <svg className="mx-auto h-16 w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="mx-auto h-12 w-12 md:h-16 md:w-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Schedule Generated</h3>
-                <p className="text-gray-500">Enter loan parameters and click Calculate to see your payment schedule</p>
+                <h3 className="text-base md:text-lg font-medium text-gray-900 mb-2">No Schedule Generated</h3>
+                <p className="text-sm md:text-base text-gray-500">Enter loan parameters and click Calculate to see your payment schedule</p>
               </div>
             )}
           </div>
