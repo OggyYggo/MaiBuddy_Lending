@@ -8,10 +8,16 @@ import * as XLSX from 'xlsx'
 type Loan = Database['public']['Tables']['loans']['Row'] & {
   borrowers: Database['public']['Tables']['borrowers']['Row']
 }
+type LedgerReportEntry = Pick<
+  Database['public']['Tables']['ledger_entries']['Row'],
+  'id' | 'loan_id' | 'type' | 'amount' | 'balance_after' | 'created_at'
+> & {
+  loans: { borrowers: { full_name: string }[] }[]
+}
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<'portfolio' | 'interest' | 'aging' | 'cashflow'>('portfolio')
-  const [loans, setLoans] = useState<Loan[]>([])
+  const [loans, setLoans] = useState<Array<Loan | LedgerReportEntry>>([])
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
   const [loading, setLoading] = useState(false)

@@ -181,6 +181,7 @@ export default function ApplicationsPage() {
     setBorrowerSearch(borrower ? `${borrower.full_name} - ${borrower.phone}` : '')
     updateSchedulePreview({
       borrower_id: application.borrower_id,
+      borrower_name: borrower?.full_name || '',
       amount: application.amount.toString(),
       term_months: application.term_months.toString(),
       purpose: application.purpose || '',
