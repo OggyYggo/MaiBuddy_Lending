@@ -17,8 +17,16 @@ export function generateSchedule(input: GenerateScheduleInput): ScheduleItem[] {
   let balance = principal
 
   for (let i = 0; i < months; i++) {
-    const dueDate = new Date(startDate)
-    dueDate.setMonth(dueDate.getMonth() + i + 1)
+    const dueMonth = new Date(startDate)
+    const dueDay = dueMonth.getDate()
+    dueMonth.setDate(1)
+    dueMonth.setMonth(dueMonth.getMonth() + i + 1)
+    const lastDayOfDueMonth = new Date(
+      dueMonth.getFullYear(),
+      dueMonth.getMonth() + 1,
+      0,
+    ).getDate()
+    dueMonth.setDate(Math.min(dueDay, lastDayOfDueMonth))
 
     const interest = rate.mul(balance)
     let principalDue: Decimal
@@ -37,7 +45,7 @@ export function generateSchedule(input: GenerateScheduleInput): ScheduleItem[] {
 
     schedule.push({
       installmentNo: i + 1,
-      dueDate,
+      dueDate: dueMonth,
       principalDue: principalDue.toDecimalPlaces(2),
       interestDue: interest.toDecimalPlaces(2),
       totalDue: totalDue.toDecimalPlaces(2),

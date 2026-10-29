@@ -12,6 +12,11 @@ type Application = Database['public']['Tables']['applications']['Row'] & {
 }
 type Document = Database['public']['Tables']['documents']['Row']
 
+const dateInputToLocalDate = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day, 12)
+}
+
 export default function ApplicationDetailPage() {
   const params = useParams()
   const router = useRouter()
@@ -67,7 +72,7 @@ export default function ApplicationDetailPage() {
         rate: new Decimal(rate),
         months: app.term_months,
         style: app.repayment_style,
-        startDate: new Date(),
+        startDate: dateInputToLocalDate(app.borrowed_date),
       })
       setSchedule(scheduleData)
     } catch (err) {

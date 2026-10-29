@@ -9,6 +9,17 @@ import type { Database } from '@/types/supabase'
 type Borrower = Database['public']['Tables']['borrowers']['Row']
 type Application = Database['public']['Tables']['applications']['Row']
 
+const todayDateInput = () => {
+  const today = new Date()
+  today.setMinutes(today.getMinutes() - today.getTimezoneOffset())
+  return today.toISOString().slice(0, 10)
+}
+
+const dateInputToLocalDate = (value: string) => {
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day, 12)
+}
+
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [borrowers, setBorrowers] = useState<Borrower[]>([])
@@ -23,7 +34,7 @@ export default function ApplicationsPage() {
     borrower_id: '',
     borrower_name: '',
     amount: '',
-    borrowed_date: new Date().toISOString().slice(0, 10),
+    borrowed_date: todayDateInput(),
     term_months: '',
     purpose: '',
     repayment_style: 'EQUAL_PRINCIPAL' as 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT',
@@ -88,7 +99,7 @@ export default function ApplicationsPage() {
   const handleFormChange = (field: string, value: string) => {
     setFormData({ ...formData, [field]: value })
 
-    if (field === 'amount' || field === 'term_months' || field === 'repayment_style' || field === 'custom_rate') {
+    if (field === 'amount' || field === 'term_months' || field === 'repayment_style' || field === 'custom_rate' || field === 'borrowed_date') {
       updateSchedulePreview({ ...formData, [field]: value })
     }
   }
@@ -102,7 +113,7 @@ export default function ApplicationsPage() {
           rate: new Decimal(rate),
           months: parseInt(data.term_months),
           style: data.repayment_style,
-          startDate: new Date(),
+          startDate: dateInputToLocalDate(data.borrowed_date),
         })
         setSchedulePreview(schedule)
       } catch (err) {
@@ -163,7 +174,7 @@ export default function ApplicationsPage() {
         borrower_id: '',
         borrower_name: '',
         amount: '',
-        borrowed_date: new Date().toISOString().slice(0, 10),
+        borrowed_date: todayDateInput(),
         term_months: '',
         purpose: '',
         repayment_style: 'EQUAL_PRINCIPAL',
@@ -183,7 +194,7 @@ export default function ApplicationsPage() {
       borrower_id: application.borrower_id,
       borrower_name: borrower?.full_name || '',
       amount: application.amount.toString(),
-      borrowed_date: (application as any).borrowed_date || new Date().toISOString().slice(0, 10),
+      borrowed_date: (application as any).borrowed_date || todayDateInput(),
       term_months: application.term_months.toString(),
       purpose: application.purpose || '',
       repayment_style: application.repayment_style,
@@ -195,7 +206,7 @@ export default function ApplicationsPage() {
       borrower_id: application.borrower_id,
       borrower_name: borrower?.full_name || '',
       amount: application.amount.toString(),
-      borrowed_date: (application as any).borrowed_date || new Date().toISOString().slice(0, 10),
+      borrowed_date: (application as any).borrowed_date || todayDateInput(),
       term_months: application.term_months.toString(),
       purpose: application.purpose || '',
       repayment_style: application.repayment_style,
@@ -244,7 +255,7 @@ export default function ApplicationsPage() {
         <button
           onClick={() => {
             setEditingApplicationId(null)
-            setFormData({ borrower_id: '', borrower_name: '', amount: '', borrowed_date: new Date().toISOString().slice(0, 10), term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL', custom_rate: '', rate_override_reason: '' })
+            setFormData({ borrower_id: '', borrower_name: '', amount: '', borrowed_date: todayDateInput(), term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL', custom_rate: '', rate_override_reason: '' })
             setBorrowerSearch('')
             setSchedulePreview([])
             setShowForm(true)
