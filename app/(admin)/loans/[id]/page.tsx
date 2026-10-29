@@ -43,7 +43,7 @@ export default function LoanDetailPage() {
       .from('loans')
       .select('*, borrowers(*)')
       .eq('id', params.id)
-      .single()
+      .maybeSingle()
 
     if (error) {
       console.error('Error fetching loan:', error)

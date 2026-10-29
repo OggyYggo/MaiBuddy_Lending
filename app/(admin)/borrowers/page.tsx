@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import type { Database } from '@/types/supabase'
+import { Swal, showSweetAlert, showSweetToast } from '@/lib/sweet-alert'
 
 type Borrower = Database['public']['Tables']['borrowers']['Row']
 
@@ -85,7 +86,7 @@ export default function BorrowersPage() {
 
     if (error) {
       console.error('Error saving borrower:', error)
-      alert(`Failed to ${editingBorrowerId ? 'update' : 'create'} borrower: ${error.message}`)
+      void showSweetAlert('error', 'Borrower not saved', `Failed to ${editingBorrowerId ? 'update' : 'create'} borrower: ${error.message}`)
     } else {
       setShowForm(false)
       setEditingBorrowerId(null)
@@ -100,7 +101,8 @@ export default function BorrowersPage() {
         id_number: '',
         notes: '',
       })
-      fetchBorrowers()
+      await fetchBorrowers()
+      void showSweetToast('success', `Borrower ${editingBorrowerId ? 'updated' : 'created'} successfully`)
     }
   }
 
@@ -135,22 +137,31 @@ export default function BorrowersPage() {
     if (applicationsResult.error || loansResult.error) {
       const error = applicationsResult.error || loansResult.error
       console.error('Error checking borrower references before deletion:', error)
-      alert(`Could not verify whether ${borrower.full_name} has linked applications or loans. No data was deleted.`)
+      void showSweetAlert('error', 'Could not check borrower records', `Could not verify whether ${borrower.full_name} has linked applications or loans. No data was deleted.`)
       return
     }
 
     const applicationCount = applicationsResult.count || 0
     const loanCount = loansResult.count || 0
     if (applicationCount > 0 || loanCount > 0) {
-      alert(
+      void showSweetAlert(
+        'warning',
+        'Borrower cannot be deleted',
         `Cannot delete ${borrower.full_name}: this borrower is linked to ${applicationCount} application${applicationCount === 1 ? '' : 's'} and ${loanCount} loan${loanCount === 1 ? '' : 's'}. Keep the borrower record to preserve financial history.`,
       )
       return
     }
 
-    if (!window.confirm(`Delete borrower ${borrower.full_name}? This cannot be undone.`)) {
-      return
-    }
+    const confirmation = await Swal.fire({
+      icon: 'warning',
+      title: 'Delete borrower?',
+      text: `Delete ${borrower.full_name}? This cannot be undone.`,
+      showCancelButton: true,
+      confirmButtonText: 'Delete borrower',
+      cancelButtonText: 'Keep borrower',
+      confirmButtonColor: '#dc2626',
+    })
+    if (!confirmation.isConfirmed) return
 
     const { data, error } = await supabase
       .from('borrowers')
@@ -160,17 +171,18 @@ export default function BorrowersPage() {
     if (error) {
       console.error('Error deleting borrower:', error)
       if (error.code === '23503') {
-        alert('This borrower is linked to an application or loan and cannot be deleted. Keep the record to preserve financial history.')
+        void showSweetAlert('warning', 'Borrower cannot be deleted', 'This borrower is linked to an application or loan. Keep the record to preserve financial history.')
         return
       }
-      alert(`Could not delete borrower: ${error.message}`)
+      void showSweetAlert('error', 'Could not delete borrower', error.message)
       return
     }
     if (!data?.length) {
-      alert('No borrower was deleted. Apply the admin record-management SQL migration in Supabase to enable deletes.')
+      void showSweetAlert('warning', 'Borrower was not deleted', 'Apply the admin record-management SQL migration in Supabase to enable deletes.')
       return
     }
-    fetchBorrowers()
+    await fetchBorrowers()
+    void showSweetToast('success', 'Borrower deleted successfully')
   }
 
   const filteredBorrowers = borrowers.filter(

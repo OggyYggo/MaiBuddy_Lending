@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import type { Database } from '@/types/supabase'
+import { Swal, showSweetAlert, showSweetToast } from '@/lib/sweet-alert'
 
 type Payment = Database['public']['Tables']['payments']['Row'] & {
   loans: Database['public']['Tables']['loans']['Row'] & {
@@ -14,9 +15,9 @@ export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [statusFilter, setStatusFilter] = useState<string>('all')
   const [showForm, setShowForm] = useState(false)
+  const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [actingOnPaymentId, setActingOnPaymentId] = useState<string | null>(null)
-  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const supabase = createClient()
 
   const [formData, setFormData] = useState({
@@ -29,6 +30,16 @@ export default function PaymentsPage() {
   })
 
   const [loans, setLoans] = useState<any[]>([])
+  const selectedLoan = loans.find((loan) => loan.id === formData.loan_id)
+  const enteredAmount = Number(formData.amount)
+  const projectedBalance = selectedLoan?.outstandingBalance != null
+    && Number.isFinite(enteredAmount)
+    && enteredAmount > 0
+    ? Math.max(
+        0,
+        selectedLoan.outstandingBalance - (formData.payment_type === 'principal' ? enteredAmount : 0),
+      )
+    : null
 
   useEffect(() => {
     fetchPayments()
@@ -66,7 +77,37 @@ export default function PaymentsPage() {
     if (error) {
       console.error('Error fetching loans:', error)
     } else {
-      setLoans(data || [])
+      const activeLoans = data || []
+      const loanIds = activeLoans.map((loan) => loan.id)
+      const latestBalances = new Map<string, number>()
+      let balanceQueryFailed = false
+
+      if (loanIds.length > 0) {
+        const { data: ledgerEntries, error: ledgerError } = await supabase
+          .from('ledger_entries')
+          .select('id, loan_id, balance_after, created_at')
+          .in('loan_id', loanIds)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+
+        if (ledgerError) {
+          console.error('Error fetching outstanding loan balances:', ledgerError)
+          balanceQueryFailed = true
+        } else {
+          for (const entry of ledgerEntries || []) {
+            if (!latestBalances.has(entry.loan_id)) {
+              latestBalances.set(entry.loan_id, Number(entry.balance_after))
+            }
+          }
+        }
+      }
+
+      setLoans(activeLoans.map((loan) => ({
+        ...loan,
+        outstandingBalance: balanceQueryFailed
+          ? null
+          : latestBalances.get(loan.id) ?? Number(loan.principal),
+      })))
     }
   }
 
@@ -74,13 +115,80 @@ export default function PaymentsPage() {
     e.preventDefault()
     const amount = Number(formData.amount)
     if (!Number.isFinite(amount) || amount <= 0) {
-      setNotice({ type: 'error', message: 'Enter a valid payment amount greater than zero.' })
+      void showSweetAlert('error', 'Invalid payment amount', 'Enter a valid payment amount greater than zero.')
       return
     }
 
+    const receivedAt = new Date(formData.received_at).toISOString()
     const { data: { user } } = await supabase.auth.getUser()
 
-    const { data: payment, error } = await supabase
+    if (editingPaymentId) {
+      const payment = payments.find((item) => item.id === editingPaymentId)
+      if (!payment || payment.status !== 'pending') {
+        void showSweetAlert('error', 'Payment cannot be edited', 'Only pending payments can be changed.')
+        setShowForm(false)
+        setEditingPaymentId(null)
+        return
+      }
+
+      const updatedPayment = {
+        loan_id: formData.loan_id,
+        amount,
+        payment_type: formData.payment_type,
+        method: formData.method,
+        reference: formData.reference || null,
+        received_at: receivedAt,
+      }
+      const { data, error } = await supabase
+        .from('payments')
+        .update(updatedPayment)
+        .eq('id', editingPaymentId)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle()
+
+      if (error) {
+        console.error('Error updating pending payment:', error)
+        void showSweetAlert('error', 'Payment not updated', error.message)
+        return
+      }
+      if (!data) {
+        void showSweetAlert('error', 'Payment cannot be edited', 'It may have been posted or voided by another admin. Refresh and try again.')
+        setShowForm(false)
+        setEditingPaymentId(null)
+        await fetchPayments()
+        return
+      }
+
+      const { error: auditError } = await supabase.from('audit_logs').insert({
+        actor_id: user?.id ?? null,
+        action: 'edit_pending_payment',
+        entity: 'payment',
+        entity_id: payment.id,
+        before_data: {
+          loan_id: payment.loan_id,
+          amount: payment.amount,
+          payment_type: payment.payment_type,
+          method: payment.method,
+          reference: payment.reference,
+          received_at: payment.received_at,
+        },
+        after_data: updatedPayment,
+      })
+
+      setShowForm(false)
+      setEditingPaymentId(null)
+      await fetchPayments()
+      if (auditError) {
+        console.error('Payment updated, but its audit entry could not be saved:', auditError)
+        void showSweetAlert('warning', 'Payment updated', 'The payment was updated, but its audit entry could not be saved.')
+      } else {
+        void showSweetToast('success', 'Pending payment updated successfully')
+      }
+      return
+    }
+
+    const { error } = await supabase
       .from('payments')
       .insert({
         loan_id: formData.loan_id,
@@ -88,35 +196,18 @@ export default function PaymentsPage() {
         payment_type: formData.payment_type,
         method: formData.method,
         reference: formData.reference || null,
-        received_at: new Date(formData.received_at).toISOString(),
+        received_at: receivedAt,
         recorded_by: user?.id,
         status: 'pending',
       })
-      .select()
-      .single()
 
     if (error) {
       console.error('Error creating payment:', error)
-      setNotice({ type: 'error', message: 'Failed to create payment.' })
+      void showSweetAlert('error', 'Payment not saved', error.message)
     } else {
-      // Auto-confirm for now (in production, use maker-checker)
-      const { error: recordError } = await supabase.rpc('record_payment', {
-        p_payment_id: payment.id,
-        p_loan_id: formData.loan_id,
-        p_amount: amount,
-        p_received_at: new Date(formData.received_at).toISOString(),
-      })
-
-      if (recordError) {
-        const errorMessage = formatSupabaseError(recordError)
-        console.error(`Error posting payment to the loan ledger: ${errorMessage}`)
-        setNotice({ type: 'error', message: `Payment saved as pending, but not posted: ${errorMessage}` })
-        fetchPayments()
-        return
-      }
-
       setShowForm(false)
-      setNotice({ type: 'success', message: `${formData.payment_type} payment recorded successfully.` })
+      setEditingPaymentId(null)
+      void showSweetToast('success', 'Payment saved as pending. Review it and post it when ready.')
       setFormData({
         loan_id: '',
         amount: '',
@@ -127,6 +218,33 @@ export default function PaymentsPage() {
       })
       fetchPayments()
     }
+  }
+
+  const startEditingPayment = (payment: Payment) => {
+    if (payment.status !== 'pending') return
+    setEditingPaymentId(payment.id)
+    setFormData({
+      loan_id: payment.loan_id,
+      amount: String(payment.amount),
+      payment_type: payment.payment_type || 'principal',
+      method: payment.method,
+      reference: payment.reference || '',
+      received_at: new Date(payment.received_at).toISOString().split('T')[0],
+    })
+    setShowForm(true)
+  }
+
+  const closeForm = () => {
+    setShowForm(false)
+    setEditingPaymentId(null)
+    setFormData({
+      loan_id: '',
+      amount: '',
+      payment_type: 'principal',
+      method: 'cash',
+      reference: '',
+      received_at: new Date().toISOString().split('T')[0],
+    })
   }
 
   const statusColors: Record<string, string> = {
@@ -148,9 +266,21 @@ export default function PaymentsPage() {
   ].filter(Boolean).join(' | ')
 
   const voidPendingPayment = async (payment: Payment) => {
-    const reason = window.prompt('Enter a reason for voiding this pending payment:')
-    if (!reason?.trim()) return
-    if (!window.confirm('Void this pending payment? It will be marked rejected and recorded in the audit log.')) return
+    const confirmation = await Swal.fire<string>({
+      icon: 'warning',
+      title: 'Void pending payment?',
+      text: 'The payment will be rejected and the reason will be recorded in the audit log.',
+      input: 'textarea',
+      inputLabel: 'Reason for voiding',
+      inputPlaceholder: 'Enter a reason...',
+      inputValidator: (value) => !value?.trim() ? 'Please provide a reason.' : undefined,
+      showCancelButton: true,
+      confirmButtonText: 'Void payment',
+      cancelButtonText: 'Keep payment',
+      confirmButtonColor: '#dc2626',
+    })
+    if (!confirmation.isConfirmed || !confirmation.value?.trim()) return
+    const reason = confirmation.value.trim()
 
     setActingOnPaymentId(payment.id)
     const { error } = await supabase.rpc('void_pending_payment', {
@@ -159,9 +289,9 @@ export default function PaymentsPage() {
     })
     if (error) {
       console.error('Error voiding pending payment:', error)
-      setNotice({ type: 'error', message: `Could not void payment: ${error.message}` })
+      void showSweetAlert('error', 'Could not void payment', error.message)
     } else {
-      setNotice({ type: 'success', message: 'Payment voided successfully.' })
+      void showSweetToast('success', 'Payment voided successfully')
       await fetchPayments()
     }
     setActingOnPaymentId(null)
@@ -179,10 +309,11 @@ export default function PaymentsPage() {
     if (error) {
       const errorMessage = formatSupabaseError(error)
       console.error(`Error posting pending payment: ${errorMessage}`)
-      setNotice({ type: 'error', message: `Could not post payment: ${errorMessage}` })
+      void showSweetAlert('error', 'Could not post payment', errorMessage)
     } else {
-      setNotice({ type: 'success', message: `${payment.payment_type} payment posted to the loan ledger.` })
+      void showSweetToast('success', `${payment.payment_type} payment posted to the loan ledger`)
       await fetchPayments()
+      await fetchLoans()
     }
     setActingOnPaymentId(null)
   }
@@ -192,7 +323,7 @@ export default function PaymentsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800 md:text-2xl">Payments</h1>
-          <p className="mt-1 text-sm text-slate-500">Record incoming payments and review their status.</p>
+          <p className="mt-1 text-sm text-slate-500">Record payments, correct pending entries, and post them to the loan ledger.</p>
         </div>
         <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
           <select
@@ -216,7 +347,9 @@ export default function PaymentsPage() {
 
       {showForm && (
         <div className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 mb-6">
-          <h2 className="text-base md:text-lg font-semibold mb-4">Record New Payment</h2>
+            <h2 className="text-base md:text-lg font-semibold mb-4">
+              {editingPaymentId ? 'Edit Pending Payment' : 'Record New Payment'}
+            </h2>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="sm:col-span-2">
@@ -236,6 +369,31 @@ export default function PaymentsPage() {
                     </option>
                   ))}
                 </select>
+                {selectedLoan && (
+                  <div className="mt-3 rounded-lg border border-indigo-100 bg-indigo-50/70 p-3">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-medium text-indigo-700">Current outstanding principal</p>
+                        <p className="mt-1 text-lg font-semibold text-slate-900">
+                          {selectedLoan.outstandingBalance == null
+                            ? 'Balance unavailable'
+                            : `₱${selectedLoan.outstandingBalance.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        </p>
+                      </div>
+                      {projectedBalance != null && (
+                        <div>
+                          <p className="text-xs font-medium text-indigo-700">Estimated principal after payment</p>
+                          <p className="mt-1 text-lg font-semibold text-slate-900">
+                            ₱{projectedBalance.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <p className="mt-2 text-xs text-slate-600">
+                      Estimate is based on the selected payment type. The posted ledger determines the final balance.
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -316,11 +474,11 @@ export default function PaymentsPage() {
                 type="submit"
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
               >
-                Record Payment
+                {editingPaymentId ? 'Save Changes' : 'Record Payment'}
               </button>
               <button
                 type="button"
-                onClick={() => setShowForm(false)}
+                onClick={closeForm}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
               >
                 Cancel
@@ -329,8 +487,6 @@ export default function PaymentsPage() {
           </form>
         </div>
       )}
-
-      {notice && <div role="alert" className={`fixed right-5 top-5 z-50 max-w-md rounded-2xl border px-5 py-4 shadow-xl ${notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}><div className="flex items-start justify-between gap-4"><div><p className="font-semibold">{notice.type === 'success' ? 'Success' : 'Something went wrong'}</p><p className="mt-1 text-sm">{notice.message}</p></div><button type="button" aria-label="Dismiss alert" onClick={() => setNotice(null)} className="font-bold">×</button></div></div>}
 
       {loading ? (
         <div className="text-center py-8">Loading...</div>
@@ -413,6 +569,14 @@ export default function PaymentsPage() {
                       </a>
                       {payment.status === 'pending' && (
                         <>
+                          <button
+                            type="button"
+                            disabled={actingOnPaymentId === payment.id}
+                            onClick={() => startEditingPayment(payment)}
+                            className="mr-3 text-indigo-600 hover:text-indigo-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Edit
+                          </button>
                           <button
                             type="button"
                             disabled={actingOnPaymentId === payment.id}

@@ -188,26 +188,26 @@ export default function CollectionsPage() {
           <div className="text-center py-8">Loading...</div>
         ) : (
           <>
-            <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
-              <table className="min-w-[600px] divide-y divide-gray-200">
+            <div className="w-full overflow-x-auto">
+              <table className="w-full table-fixed divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="w-[32%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider lg:w-[24%] xl:w-[20%] md:px-4">
                       Borrower
                     </th>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                    <th className="hidden w-[18%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider lg:table-cell xl:w-[16%] md:px-4">
                       Phone
                     </th>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="w-[24%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider lg:w-[18%] xl:w-[17%] md:px-4">
                       Principal
                     </th>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="w-[20%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider lg:w-[15%] xl:w-[12%] md:px-4">
                       Days Late
                     </th>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
+                    <th className="hidden w-[17%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider xl:table-cell md:px-4">
                       Aging Bucket
                     </th>
-                    <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="w-[24%] px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider lg:w-[25%] xl:w-[18%] md:px-4">
                       Actions
                     </th>
                   </tr>
@@ -218,35 +218,35 @@ export default function CollectionsPage() {
                     const bucket = getAgingBucket(daysLate)
                     return (
                       <tr key={loan.id} className="hover:bg-gray-50">
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm font-medium text-gray-900">
+                        <td className="break-words px-2 py-4 text-xs sm:text-sm md:px-4">
+                          <div className="font-medium text-gray-900">
                             {(loan as any).borrowers?.full_name || 'Unknown'}
                           </div>
                         </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                          <div className="text-sm text-gray-500">
+                        <td className="hidden break-words px-2 py-4 text-sm text-gray-500 lg:table-cell md:px-4">
+                          <div>
                             {(loan as any).borrowers?.phone || '-'}
                           </div>
                         </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
+                        <td className="break-words px-2 py-4 text-xs text-gray-900 sm:text-sm md:px-4">
+                          <div>
                             ₱{loan.principal.toLocaleString()}
                           </div>
                         </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900 font-medium">{daysLate}</div>
+                        <td className="break-words px-2 py-4 text-xs font-medium text-gray-900 sm:text-sm md:px-4">
+                          {daysLate}
                         </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                        <td className="hidden break-words px-2 py-4 xl:table-cell md:px-4">
                           <span
                             className={`px-2 py-1 text-xs rounded-full ${bucketColors[bucket]}`}
                           >
                             {bucket}
                           </span>
                         </td>
-                        <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm font-medium">
+                        <td className="break-words px-2 py-4 text-xs font-medium md:px-4">
                           <button
                             onClick={() => handleSelectLoan(loan)}
-                            className="text-indigo-600 hover:text-indigo-900"
+                            className="text-left text-indigo-600 hover:text-indigo-900"
                           >
                             Add Note
                           </button>

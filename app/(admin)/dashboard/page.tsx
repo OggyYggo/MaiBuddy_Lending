@@ -176,6 +176,11 @@ export default function DashboardPage() {
     alert('Reminder text copied to clipboard')
   }
 
+  const dueThisWeekTotal = dueThisWeek.reduce(
+    (total, item) => total + Number(item.total_due || 0),
+    0,
+  )
+
   const primaryMetrics = [
     { title: 'Total Borrowers', value: stats.totalBorrowers.toLocaleString(), href: '/borrowers', icon: Users, tone: 'bg-indigo-50 text-indigo-600' },
     { title: 'Active Loans', value: stats.activeLoans.toLocaleString(), href: '/loans', icon: Landmark, tone: 'bg-sky-50 text-sky-600' },
@@ -288,30 +293,40 @@ export default function DashboardPage() {
 
           {/* Due This Week */}
           <div className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 mb-8">
-            <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Due This Week</h2>
+            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-base md:text-lg font-semibold text-gray-900">Due This Week</h2>
+                <p className="text-xs text-gray-500">Unpaid installments due in the next 7 days</p>
+              </div>
+              {dueThisWeek.length > 0 && (
+                <p className="text-sm font-semibold text-indigo-700">
+                  {formatCurrency(dueThisWeekTotal)} remaining across {dueThisWeek.length} installment{dueThisWeek.length === 1 ? '' : 's'}
+                </p>
+              )}
+            </div>
             {dueThisWeek.length === 0 ? (
               <div className="text-center py-4 text-gray-500">No payments due this week</div>
             ) : (
-              <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
-                <table className="min-w-[600px] divide-y divide-gray-200">
+              <div className="w-full overflow-x-auto">
+                <table className="w-full table-fixed divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-3 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      <th className="w-[24%] px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase md:px-4">
                         Borrower
                       </th>
-                      <th className="px-3 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase hidden sm:table-cell">
+                      <th className="hidden w-[15%] px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase lg:table-cell md:px-4">
                         Phone
                       </th>
-                      <th className="px-3 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      <th className="w-[16%] px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase md:px-4">
                         Due Date
                       </th>
-                      <th className="px-3 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                        Total Due
+                      <th className="w-[19%] px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase md:px-4">
+                        Remaining Due
                       </th>
-                      <th className="px-3 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase hidden md:table-cell">
+                      <th className="hidden w-[12%] px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase xl:table-cell md:px-4">
                         Paid
                       </th>
-                      <th className="px-3 md:px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                      <th className="w-[14%] px-2 py-2 text-left text-xs font-medium text-gray-500 uppercase md:px-4">
                         Actions
                       </th>
                     </tr>
@@ -319,19 +334,24 @@ export default function DashboardPage() {
                   <tbody className="bg-white divide-y divide-gray-200">
                     {dueThisWeek.map((item) => (
                       <tr key={item.id} className="hover:bg-gray-50">
-                        <td className="px-3 md:px-4 py-2 text-sm">{item.borrower_name}</td>
-                        <td className="px-3 md:px-4 py-2 text-sm hidden sm:table-cell">{item.phone}</td>
-                        <td className="px-3 md:px-4 py-2 text-sm">
+                        <td className="break-words px-2 py-2 text-xs sm:text-sm md:px-4">
+                          <div>{item.borrower_name}</div>
+                          <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${Number(item.amount_paid) > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'}`}>
+                            {Number(item.amount_paid) > 0 ? 'Partially paid' : 'Due'}
+                          </span>
+                        </td>
+                        <td className="hidden break-words px-2 py-2 text-sm lg:table-cell md:px-4">{item.phone}</td>
+                        <td className="break-words px-2 py-2 text-xs sm:text-sm md:px-4">
                           {new Date(item.due_date).toLocaleDateString()}
                         </td>
-                        <td className="px-3 md:px-4 py-2 text-sm font-medium">
+                        <td className="break-words px-2 py-2 text-xs font-medium sm:text-sm md:px-4">
                           {formatCurrency(item.total_due)}
                         </td>
-                        <td className="px-3 md:px-4 py-2 text-sm hidden md:table-cell">{formatCurrency(item.amount_paid)}</td>
-                        <td className="px-3 md:px-4 py-2 text-sm">
+                        <td className="hidden break-words px-2 py-2 text-sm xl:table-cell md:px-4">{formatCurrency(item.amount_paid)}</td>
+                        <td className="break-words px-2 py-2 text-xs md:px-4">
                           <button
                             onClick={() => copyReminderText(item)}
-                            className="text-indigo-600 hover:text-indigo-900 text-xs"
+                            className="text-left text-indigo-600 hover:text-indigo-900"
                           >
                             Copy Reminder
                           </button>

@@ -5,6 +5,7 @@ import { createClient } from '@/utils/supabase/client'
 import { generateSchedule } from '@/lib/loan/engine'
 import Decimal from 'decimal.js'
 import type { Database } from '@/types/supabase'
+import { Swal, showSweetAlert, showSweetToast } from '@/lib/sweet-alert'
 
 type Borrower = Database['public']['Tables']['borrowers']['Row']
 type Application = Database['public']['Tables']['applications']['Row']
@@ -27,7 +28,6 @@ export default function ApplicationsPage() {
   const [editingApplicationId, setEditingApplicationId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState<Record<string, string>>({})
-  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const supabase = createClient()
 
   const [formData, setFormData] = useState({
@@ -128,7 +128,7 @@ export default function ApplicationsPage() {
 
     const requestedAmount = Number(formData.amount)
     if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
-      setNotice({ type: 'error', message: 'Enter a valid loan amount greater than zero.' })
+      void showSweetAlert('error', 'Invalid loan amount', 'Enter a valid amount greater than zero.')
       return
     }
 
@@ -138,12 +138,12 @@ export default function ApplicationsPage() {
       const maxRate = settings.max_rate ? parseFloat(settings.max_rate) : 0.10
 
       if (rate < minRate || rate > maxRate) {
-        setNotice({ type: 'error', message: `Custom rate must be between ${(minRate * 100).toFixed(2)}% and ${(maxRate * 100).toFixed(2)}%.` })
+        void showSweetAlert('warning', 'Rate outside allowed range', `Custom rate must be between ${(minRate * 100).toFixed(2)}% and ${(maxRate * 100).toFixed(2)}%.`)
         return
       }
 
       if (!formData.rate_override_reason.trim()) {
-        setNotice({ type: 'error', message: 'Please provide a reason for the rate override.' })
+        void showSweetAlert('warning', 'Reason required', 'Please provide a reason for the rate override.')
         return
       }
     }
@@ -165,9 +165,9 @@ export default function ApplicationsPage() {
 
     if (error) {
       console.error('Error saving application:', error)
-      setNotice({ type: 'error', message: `Failed to ${editingApplicationId ? 'update' : 'create'} application: ${error.message}` })
+      void showSweetAlert('error', 'Application not saved', `Failed to ${editingApplicationId ? 'update' : 'create'} application: ${error.message}`)
     } else {
-      setNotice({ type: 'success', message: `Application ${editingApplicationId ? 'updated' : 'created'} successfully.` })
+      void showSweetToast('success', `Application ${editingApplicationId ? 'updated' : 'created'} successfully`)
       setShowForm(false)
       setEditingApplicationId(null)
       setFormData({
@@ -217,7 +217,16 @@ export default function ApplicationsPage() {
   }
 
   const handleDelete = async (application: Application) => {
-    if (!window.confirm(`Delete this ${application.status.replace('_', ' ')} application?`)) return
+    const confirmation = await Swal.fire({
+      icon: 'warning',
+      title: 'Delete application?',
+      text: `This ${application.status.replace('_', ' ')} application will be deleted.`,
+      showCancelButton: true,
+      confirmButtonText: 'Delete application',
+      cancelButtonText: 'Keep application',
+      confirmButtonColor: '#dc2626',
+    })
+    if (!confirmation.isConfirmed) return
 
     const { data, error } = await supabase
       .from('applications')
@@ -226,13 +235,14 @@ export default function ApplicationsPage() {
       .select('id')
     if (error) {
       console.error('Error deleting application:', error)
-      setNotice({ type: 'error', message: `Could not delete application: ${error.message}` })
+      void showSweetAlert('error', 'Could not delete application', error.message)
       return
     }
     if (!data?.length) {
-      setNotice({ type: 'error', message: 'No application was deleted. Apply the admin record-management SQL migration in Supabase to enable deletes.' })
+      void showSweetAlert('warning', 'Application was not deleted', 'Apply the admin record-management SQL migration in Supabase to enable deletes.')
       return
     }
+    void showSweetToast('success', 'Application deleted')
     fetchApplications()
   }
 
@@ -246,7 +256,6 @@ export default function ApplicationsPage() {
 
   return (
     <div>
-      {notice && <div role="alert" className={`fixed right-5 top-5 z-50 max-w-md rounded-2xl border px-5 py-4 shadow-xl ${notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}><div className="flex items-start justify-between gap-4"><div><p className="font-semibold">{notice.type === 'success' ? 'Success' : 'Please check this'}</p><p className="mt-1 text-sm">{notice.message}</p></div><button type="button" aria-label="Dismiss alert" onClick={() => setNotice(null)} className="font-bold">×</button></div></div>}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800 md:text-2xl">Applications</h1>
