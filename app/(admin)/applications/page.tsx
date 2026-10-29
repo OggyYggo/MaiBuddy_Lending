@@ -506,6 +506,9 @@ export default function ApplicationsPage() {
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Borrower
                   </th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
+                    Source
+                  </th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
@@ -530,6 +533,23 @@ export default function ApplicationsPage() {
                       <div className="text-sm font-medium text-gray-900">
                         {(app as any).borrowers?.full_name || 'Unknown'}
                       </div>
+                    </td>
+                    <td className="hidden px-4 py-4 whitespace-nowrap sm:table-cell md:px-6">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-2 py-1 text-xs font-medium ${app.submission_source === 'online' ? 'bg-sky-100 text-sky-800' : 'bg-slate-100 text-slate-700'}`}>
+                          {app.submission_source === 'online' ? 'Online' : 'Admin'}
+                        </span>
+                        {app.possible_duplicate && (
+                          <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-800" title="Check for an existing borrower with matching details">
+                            Possible duplicate
+                          </span>
+                        )}
+                      </div>
+                      {app.submission_source === 'online' && (
+                        <span className="mt-1 block text-[11px] text-slate-500">
+                          Ref: MB-{app.id.replaceAll('-', '').slice(0, 8).toUpperCase()}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">

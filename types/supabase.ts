@@ -187,6 +187,8 @@ export interface Database {
           updated_at: string
           custom_rate: number | null
           rate_override_reason: string | null
+          submission_source: 'admin' | 'online'
+          possible_duplicate: boolean
         }
         Insert: {
           id?: string
@@ -205,6 +207,8 @@ export interface Database {
           updated_at?: string
           custom_rate?: number | null
           rate_override_reason?: string | null
+          submission_source?: 'admin' | 'online'
+          possible_duplicate?: boolean
         }
         Update: {
           id?: string
@@ -223,6 +227,8 @@ export interface Database {
           updated_at?: string
           custom_rate?: number | null
           rate_override_reason?: string | null
+          submission_source?: 'admin' | 'online'
+          possible_duplicate?: boolean
         }
       }
       loans: {
@@ -440,6 +446,24 @@ export interface Database {
       }
     }
     Functions: {
+      submit_public_application: {
+        Args: {
+          p_full_name: string
+          p_birth_date: string
+          p_phone: string
+          p_address: string
+          p_employer: string | null
+          p_monthly_income: number | null
+          p_id_type: string | null
+          p_id_number: string | null
+          p_amount: number
+          p_term_months: number
+          p_purpose: string
+          p_repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
+          p_submission_fingerprint: string
+        }
+        Returns: { application_reference: string }[]
+      }
       record_payment: {
         Args: {
           p_payment_id: string

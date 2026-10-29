@@ -122,6 +122,12 @@ export default function LoginPage() {
             {loading ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
+        <p className="text-center text-sm text-slate-600">
+          Need a loan?{' '}
+          <a href="/apply" className="font-semibold text-indigo-600 hover:text-indigo-800">
+            Submit an application
+          </a>
+        </p>
       </div>
     </div>
   )
