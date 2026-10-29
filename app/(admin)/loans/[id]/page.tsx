@@ -444,6 +444,7 @@ export default function LoanDetailPage() {
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                       Amount
                     </th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Payment Type</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                       Method
                     </th>
@@ -464,6 +465,7 @@ export default function LoanDetailPage() {
                       <td className="px-4 py-2 text-sm">
                         ₱{payment.amount.toLocaleString()}
                       </td>
+                      <td className="px-4 py-2 text-sm capitalize">{(payment as any).payment_type || 'principal'}</td>
                       <td className="px-4 py-2 text-sm capitalize">
                         {payment.method.replace('_', ' ')}
                       </td>

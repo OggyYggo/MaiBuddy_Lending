@@ -28,6 +28,7 @@ export default function DashboardPage() {
     pendingApplications: 0,
     disbursedMonth: 0,
     collectedMonth: 0,
+    penaltyCollectedMonth: 0,
     interestEarnedMonth: 0,
     expectedInterest30Days: 0,
     approvalRate: 0,
@@ -58,6 +59,7 @@ export default function DashboardPage() {
         pendingApplications,
         disbursedMonth,
         collectedMonth,
+        penaltyPaymentsMonth,
         interestEarnedMonth,
         expectedInterest30Days,
         approvalRate,
@@ -74,6 +76,20 @@ export default function DashboardPage() {
         supabase.from('v_pending_applications').select('*').single(),
         supabase.from('v_disbursed_month').select('*').single(),
         supabase.from('v_collected_month').select('*').single(),
+        (() => {
+          const monthStart = new Date()
+          monthStart.setDate(1)
+          monthStart.setHours(0, 0, 0, 0)
+          const nextMonthStart = new Date(monthStart)
+          nextMonthStart.setMonth(nextMonthStart.getMonth() + 1)
+          return supabase
+            .from('payments')
+            .select('amount')
+            .eq('payment_type', 'penalty')
+            .eq('status', 'confirmed')
+            .gte('received_at', monthStart.toISOString())
+            .lt('received_at', nextMonthStart.toISOString())
+        })(),
         supabase.from('v_interest_earned_month').select('*').single(),
         supabase.from('v_expected_interest_30days').select('*').single(),
         supabase.from('v_approval_rate').select('*').single(),
@@ -92,6 +108,7 @@ export default function DashboardPage() {
         pendingApplications,
         disbursedMonth,
         collectedMonth,
+        penaltyPaymentsMonth,
         interestEarnedMonth,
         expectedInterest30Days,
         approvalRate,
@@ -127,6 +144,10 @@ export default function DashboardPage() {
         pendingApplications: pendingApplications.data?.count || 0,
         disbursedMonth: disbursedMonth.data?.total || 0,
         collectedMonth: collectedMonth.data?.total || 0,
+        penaltyCollectedMonth: (penaltyPaymentsMonth.data || []).reduce(
+          (total, payment) => total + Number(payment.amount || 0),
+          0,
+        ),
         interestEarnedMonth: interestEarnedMonth.data?.total || 0,
         expectedInterest30Days: expectedInterest30Days.data?.total || 0,
         approvalRate: approvalRate.data?.percentage || 0,
@@ -165,6 +186,7 @@ export default function DashboardPage() {
   const monthlyMetrics = [
     { title: 'Disbursed This Month', value: formatCurrency(stats.disbursedMonth), href: '/loans', icon: Banknote, tone: 'bg-emerald-50 text-emerald-600' },
     { title: 'Collected This Month', value: formatCurrency(stats.collectedMonth), href: '/payments', icon: Wallet, tone: 'bg-sky-50 text-sky-600' },
+    { title: 'Penalty Collected This Month', value: formatCurrency(stats.penaltyCollectedMonth), href: '/payments', icon: TriangleAlert, tone: 'bg-amber-50 text-amber-600' },
     { title: 'Interest Earned This Month', value: formatCurrency(stats.interestEarnedMonth), href: '/reports', icon: TrendingUp, tone: 'bg-violet-50 text-violet-600' },
   ]
   const riskMetrics = [
@@ -215,7 +237,7 @@ export default function DashboardPage() {
           </div>
 
           {/* Monthly Performance */}
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3 md:gap-5">
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-5">
             {monthlyMetrics.map(({ title, value, href, icon: Icon, tone }) => (
               <button
                 key={title}

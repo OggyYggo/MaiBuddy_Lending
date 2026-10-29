@@ -16,12 +16,14 @@ export default function ApplicationsPage() {
   const [editingApplicationId, setEditingApplicationId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState<Record<string, string>>({})
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const supabase = createClient()
 
   const [formData, setFormData] = useState({
     borrower_id: '',
     borrower_name: '',
     amount: '',
+    borrowed_date: new Date().toISOString().slice(0, 10),
     term_months: '',
     purpose: '',
     repayment_style: 'EQUAL_PRINCIPAL' as 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT',
@@ -113,25 +115,32 @@ export default function ApplicationsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    const requestedAmount = Number(formData.amount)
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      setNotice({ type: 'error', message: 'Enter a valid loan amount greater than zero.' })
+      return
+    }
+
     if (formData.custom_rate) {
       const rate = parseFloat(formData.custom_rate)
       const minRate = settings.min_rate ? parseFloat(settings.min_rate) : 0.01
       const maxRate = settings.max_rate ? parseFloat(settings.max_rate) : 0.10
 
       if (rate < minRate || rate > maxRate) {
-        alert(`Custom rate must be between ${(minRate * 100).toFixed(2)}% and ${(maxRate * 100).toFixed(2)}%`)
+        setNotice({ type: 'error', message: `Custom rate must be between ${(minRate * 100).toFixed(2)}% and ${(maxRate * 100).toFixed(2)}%.` })
         return
       }
 
       if (!formData.rate_override_reason.trim()) {
-        alert('Please provide a reason for the rate override')
+        setNotice({ type: 'error', message: 'Please provide a reason for the rate override.' })
         return
       }
     }
 
     const applicationData = {
       borrower_id: formData.borrower_id,
-      amount: parseFloat(formData.amount),
+      amount: requestedAmount,
+      borrowed_date: formData.borrowed_date,
       term_months: parseInt(formData.term_months),
       purpose: formData.purpose || null,
       repayment_style: formData.repayment_style,
@@ -145,14 +154,16 @@ export default function ApplicationsPage() {
 
     if (error) {
       console.error('Error saving application:', error)
-      alert(`Failed to ${editingApplicationId ? 'update' : 'create'} application: ${error.message}`)
+      setNotice({ type: 'error', message: `Failed to ${editingApplicationId ? 'update' : 'create'} application: ${error.message}` })
     } else {
+      setNotice({ type: 'success', message: `Application ${editingApplicationId ? 'updated' : 'created'} successfully.` })
       setShowForm(false)
       setEditingApplicationId(null)
       setFormData({
         borrower_id: '',
         borrower_name: '',
         amount: '',
+        borrowed_date: new Date().toISOString().slice(0, 10),
         term_months: '',
         purpose: '',
         repayment_style: 'EQUAL_PRINCIPAL',
@@ -172,6 +183,7 @@ export default function ApplicationsPage() {
       borrower_id: application.borrower_id,
       borrower_name: borrower?.full_name || '',
       amount: application.amount.toString(),
+      borrowed_date: (application as any).borrowed_date || new Date().toISOString().slice(0, 10),
       term_months: application.term_months.toString(),
       purpose: application.purpose || '',
       repayment_style: application.repayment_style,
@@ -183,6 +195,7 @@ export default function ApplicationsPage() {
       borrower_id: application.borrower_id,
       borrower_name: borrower?.full_name || '',
       amount: application.amount.toString(),
+      borrowed_date: (application as any).borrowed_date || new Date().toISOString().slice(0, 10),
       term_months: application.term_months.toString(),
       purpose: application.purpose || '',
       repayment_style: application.repayment_style,
@@ -202,11 +215,11 @@ export default function ApplicationsPage() {
       .select('id')
     if (error) {
       console.error('Error deleting application:', error)
-      alert(`Could not delete application: ${error.message}`)
+      setNotice({ type: 'error', message: `Could not delete application: ${error.message}` })
       return
     }
     if (!data?.length) {
-      alert('No application was deleted. Apply the admin record-management SQL migration in Supabase to enable deletes.')
+      setNotice({ type: 'error', message: 'No application was deleted. Apply the admin record-management SQL migration in Supabase to enable deletes.' })
       return
     }
     fetchApplications()
@@ -222,6 +235,7 @@ export default function ApplicationsPage() {
 
   return (
     <div>
+      {notice && <div role="alert" className={`fixed right-5 top-5 z-50 max-w-md rounded-2xl border px-5 py-4 shadow-xl ${notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}><div className="flex items-start justify-between gap-4"><div><p className="font-semibold">{notice.type === 'success' ? 'Success' : 'Please check this'}</p><p className="mt-1 text-sm">{notice.message}</p></div><button type="button" aria-label="Dismiss alert" onClick={() => setNotice(null)} className="font-bold">×</button></div></div>}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800 md:text-2xl">Applications</h1>
@@ -230,7 +244,7 @@ export default function ApplicationsPage() {
         <button
           onClick={() => {
             setEditingApplicationId(null)
-            setFormData({ borrower_id: '', borrower_name: '', amount: '', term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL', custom_rate: '', rate_override_reason: '' })
+            setFormData({ borrower_id: '', borrower_name: '', amount: '', borrowed_date: new Date().toISOString().slice(0, 10), term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL', custom_rate: '', rate_override_reason: '' })
             setBorrowerSearch('')
             setSchedulePreview([])
             setShowForm(true)
@@ -292,13 +306,18 @@ export default function ApplicationsPage() {
                   Amount (₱) *
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   required
-                  value={formData.amount}
-                  onChange={(e) => handleFormChange('amount', e.target.value)}
+                  value={formData.amount ? `₱${Number(formData.amount).toLocaleString('en-PH', { maximumFractionDigits: 2 })}` : ''}
+                  onChange={(e) => handleFormChange('amount', e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1'))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Borrowed Date *</label>
+                <input type="date" required value={formData.borrowed_date} onChange={(e) => handleFormChange('borrowed_date', e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500" />
               </div>
 
               <div>

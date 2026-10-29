@@ -174,6 +174,7 @@ export interface Database {
           id: string
           borrower_id: string
           amount: number
+          borrowed_date: string
           term_months: number
           purpose: string | null
           repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
@@ -191,6 +192,7 @@ export interface Database {
           id?: string
           borrower_id: string
           amount: number
+          borrowed_date?: string
           term_months: number
           purpose?: string | null
           repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
@@ -208,6 +210,7 @@ export interface Database {
           id?: string
           borrower_id?: string
           amount?: number
+          borrowed_date?: string
           term_months?: number
           purpose?: string | null
           repayment_style?: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
@@ -341,6 +344,7 @@ export interface Database {
           id: string
           loan_id: string
           amount: number
+          payment_type: 'principal' | 'interest' | 'penalty'
           method: 'cash' | 'bank' | 'e_wallet' | 'check'
           reference: string | null
           proof_file: string | null
@@ -353,6 +357,7 @@ export interface Database {
           id?: string
           loan_id: string
           amount: number
+          payment_type?: 'principal' | 'interest' | 'penalty'
           method: 'cash' | 'bank' | 'e_wallet' | 'check'
           reference?: string | null
           proof_file?: string | null
@@ -365,6 +370,7 @@ export interface Database {
           id?: string
           loan_id?: string
           amount?: number
+          payment_type?: 'principal' | 'interest' | 'penalty'
           method?: 'cash' | 'bank' | 'e_wallet' | 'check'
           reference?: string | null
           proof_file?: string | null

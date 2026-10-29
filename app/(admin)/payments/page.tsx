@@ -16,6 +16,7 @@ export default function PaymentsPage() {
   const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [actingOnPaymentId, setActingOnPaymentId] = useState<string | null>(null)
+  const [notice, setNotice] = useState<{ type: 'success' | 'error'; message: string } | null>(null)
   const supabase = createClient()
 
   const [formData, setFormData] = useState({
@@ -71,6 +72,11 @@ export default function PaymentsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    const amount = Number(formData.amount)
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setNotice({ type: 'error', message: 'Enter a valid payment amount greater than zero.' })
+      return
+    }
 
     const { data: { user } } = await supabase.auth.getUser()
 
@@ -78,7 +84,7 @@ export default function PaymentsPage() {
       .from('payments')
       .insert({
         loan_id: formData.loan_id,
-        amount: parseFloat(formData.amount),
+        amount,
         payment_type: formData.payment_type,
         method: formData.method,
         reference: formData.reference || null,
@@ -91,25 +97,26 @@ export default function PaymentsPage() {
 
     if (error) {
       console.error('Error creating payment:', error)
-      alert('Failed to create payment')
+      setNotice({ type: 'error', message: 'Failed to create payment.' })
     } else {
       // Auto-confirm for now (in production, use maker-checker)
       const { error: recordError } = await supabase.rpc('record_payment', {
         p_payment_id: payment.id,
         p_loan_id: formData.loan_id,
-        p_amount: parseFloat(formData.amount),
+        p_amount: amount,
         p_received_at: new Date(formData.received_at).toISOString(),
       })
 
       if (recordError) {
         const errorMessage = formatSupabaseError(recordError)
         console.error(`Error posting payment to the loan ledger: ${errorMessage}`)
-        alert(`Payment was saved as pending but was not posted to the ledger: ${errorMessage}`)
+        setNotice({ type: 'error', message: `Payment saved as pending, but not posted: ${errorMessage}` })
         fetchPayments()
         return
       }
 
       setShowForm(false)
+      setNotice({ type: 'success', message: `${formData.payment_type} payment recorded successfully.` })
       setFormData({
         loan_id: '',
         amount: '',
@@ -152,8 +159,9 @@ export default function PaymentsPage() {
     })
     if (error) {
       console.error('Error voiding pending payment:', error)
-      alert(`Could not void payment: ${error.message}. Confirm the safe loan actions migration has been applied.`)
+      setNotice({ type: 'error', message: `Could not void payment: ${error.message}` })
     } else {
+      setNotice({ type: 'success', message: 'Payment voided successfully.' })
       await fetchPayments()
     }
     setActingOnPaymentId(null)
@@ -171,8 +179,9 @@ export default function PaymentsPage() {
     if (error) {
       const errorMessage = formatSupabaseError(error)
       console.error(`Error posting pending payment: ${errorMessage}`)
-      alert(`Could not post payment: ${errorMessage}`)
+      setNotice({ type: 'error', message: `Could not post payment: ${errorMessage}` })
     } else {
+      setNotice({ type: 'success', message: `${payment.payment_type} payment posted to the loan ledger.` })
       await fetchPayments()
     }
     setActingOnPaymentId(null)
@@ -234,11 +243,11 @@ export default function PaymentsPage() {
                   Amount (₱) *
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   required
-                  value={formData.amount}
-                  onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                  value={formData.amount ? `₱${Number(formData.amount).toLocaleString('en-PH', { maximumFractionDigits: 2 })}` : ''}
+                  onChange={(e) => setFormData({ ...formData, amount: e.target.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1') })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 />
               </div>
@@ -320,6 +329,8 @@ export default function PaymentsPage() {
           </form>
         </div>
       )}
+
+      {notice && <div role="alert" className={`fixed right-5 top-5 z-50 max-w-md rounded-2xl border px-5 py-4 shadow-xl ${notice.type === 'success' ? 'border-emerald-200 bg-emerald-50 text-emerald-900' : 'border-rose-200 bg-rose-50 text-rose-900'}`}><div className="flex items-start justify-between gap-4"><div><p className="font-semibold">{notice.type === 'success' ? 'Success' : 'Something went wrong'}</p><p className="mt-1 text-sm">{notice.message}</p></div><button type="button" aria-label="Dismiss alert" onClick={() => setNotice(null)} className="font-bold">×</button></div></div>}
 
       {loading ? (
         <div className="text-center py-8">Loading...</div>
