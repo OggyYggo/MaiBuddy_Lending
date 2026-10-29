@@ -3,17 +3,15 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
+import AdvancedStats from '@/components/ui/advanced-stats'
 import {
   ArrowUpRight,
   Banknote,
   BadgeCheck,
-  ClipboardCheck,
-  Landmark,
   Repeat,
   ShieldAlert,
   TrendingUp,
   TriangleAlert,
-  Users,
   Wallet,
 } from 'lucide-react'
 
@@ -38,6 +36,7 @@ export default function DashboardPage() {
   })
   const [dueThisWeek, setDueThisWeek] = useState<any[]>([])
   const [agingBuckets, setAgingBuckets] = useState<any[]>([])
+  const [collectionTrend, setCollectionTrend] = useState<{ month: string; collected: number }[]>([])
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const supabase = createClient()
@@ -68,6 +67,7 @@ export default function DashboardPage() {
         repeatBorrowers,
         dueThisWeekData,
         agingBucketsData,
+        collectionPayments,
       ] = await Promise.all([
         supabase.from('borrowers').select('id', { count: 'exact', head: true }),
         supabase.from('v_active_loans').select('*').single(),
@@ -98,6 +98,18 @@ export default function DashboardPage() {
         supabase.from('v_repeat_borrowers').select('*').single(),
         supabase.from('v_due_this_week').select('*'),
         supabase.from('v_aging_buckets').select('*'),
+        (() => {
+          const periodStart = new Date()
+          periodStart.setDate(1)
+          periodStart.setHours(0, 0, 0, 0)
+          periodStart.setMonth(periodStart.getMonth() - 5)
+          return supabase
+            .from('payments')
+            .select('amount, received_at')
+            .eq('status', 'confirmed')
+            .gte('received_at', periodStart.toISOString())
+            .order('received_at', { ascending: true })
+        })(),
       ])
 
       const failedQuery = [
@@ -117,6 +129,7 @@ export default function DashboardPage() {
         repeatBorrowers,
         dueThisWeekData,
         agingBucketsData,
+        collectionPayments,
       ].find((result) => result.error)
 
       if (failedQuery?.error) {
@@ -158,6 +171,25 @@ export default function DashboardPage() {
 
       setDueThisWeek(dueThisWeekData.data || [])
       setAgingBuckets(agingBucketsData.data || [])
+
+      const monthLabels = Array.from({ length: 6 }, (_, index) => {
+        const date = new Date()
+        date.setDate(1)
+        date.setMonth(date.getMonth() - (5 - index))
+        return {
+          key: `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`,
+          month: date.toLocaleDateString('en-PH', { month: 'short' }),
+          collected: 0,
+        }
+      })
+      const totalsByMonth = new Map(monthLabels.map((item) => [item.key, item]))
+      for (const payment of collectionPayments.data || []) {
+        const date = new Date(payment.received_at)
+        const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+        const month = totalsByMonth.get(key)
+        if (month) month.collected += Number(payment.amount || 0)
+      }
+      setCollectionTrend(monthLabels.map(({ month, collected }) => ({ month, collected })))
     } catch (error) {
       console.error('Unexpected error fetching dashboard statistics:', error)
       setFetchError(error instanceof Error ? error.message : String(error))
@@ -181,18 +213,11 @@ export default function DashboardPage() {
     0,
   )
 
-  const primaryMetrics = [
-    { title: 'Total Borrowers', value: stats.totalBorrowers.toLocaleString(), href: '/borrowers', icon: Users, tone: 'bg-indigo-50 text-indigo-600' },
-    { title: 'Active Loans', value: stats.activeLoans.toLocaleString(), href: '/loans', icon: Landmark, tone: 'bg-sky-50 text-sky-600' },
-    { title: 'Outstanding Principal', value: formatCurrency(stats.outstandingPrincipal), href: '/loans', icon: Wallet, tone: 'bg-violet-50 text-violet-600' },
-    { title: 'Overdue Loans', value: stats.overdueLoans.toLocaleString(), detail: `${formatCurrency(stats.overdueAmount)} overdue`, href: '/loans?status=overdue', icon: TriangleAlert, tone: 'bg-rose-50 text-rose-600' },
-    { title: 'Pending Applications', value: stats.pendingApplications.toLocaleString(), href: '/applications', icon: ClipboardCheck, tone: 'bg-amber-50 text-amber-600' },
-  ]
   const monthlyMetrics = [
     { title: 'Disbursed This Month', value: formatCurrency(stats.disbursedMonth), href: '/loans', icon: Banknote, tone: 'bg-emerald-50 text-emerald-600' },
-    { title: 'Collected This Month', value: formatCurrency(stats.collectedMonth), href: '/payments', icon: Wallet, tone: 'bg-sky-50 text-sky-600' },
     { title: 'Penalty Collected This Month', value: formatCurrency(stats.penaltyCollectedMonth), href: '/payments', icon: TriangleAlert, tone: 'bg-amber-50 text-amber-600' },
     { title: 'Interest Earned This Month', value: formatCurrency(stats.interestEarnedMonth), href: '/reports', icon: TrendingUp, tone: 'bg-violet-50 text-violet-600' },
+    { title: 'Expected Interest (Next 30 Days)', value: formatCurrency(stats.expectedInterest30Days), href: '/reports', icon: Wallet, tone: 'bg-sky-50 text-sky-600' },
   ]
   const riskMetrics = [
     { title: 'Portfolio at Risk (30+ days)', value: `${stats.portfolioAtRisk.toFixed(1)}%`, icon: ShieldAlert, tone: 'bg-rose-50 text-rose-600' },
@@ -219,27 +244,7 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Key Metrics */}
-          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5 md:gap-5">
-            {primaryMetrics.map(({ title, value, detail, href, icon: Icon, tone }) => (
-              <button
-                key={title}
-                type="button"
-                onClick={() => router.push(href)}
-                className="group min-w-0 rounded-2xl border border-slate-100 bg-white p-5 text-left shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-indigo-100 hover:shadow-md md:p-6"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${tone}`}>
-                    <Icon className="h-5 w-5" />
-                  </div>
-                  <ArrowUpRight className="h-4 w-4 text-slate-300 transition group-hover:text-indigo-500" />
-                </div>
-                <p className="mt-5 text-sm font-medium text-slate-500">{title}</p>
-                <p className="mt-1 truncate text-2xl font-bold tracking-tight text-slate-800 md:text-[1.75rem]">{value}</p>
-                {detail && <p className="mt-1 text-xs font-medium text-rose-600">{detail}</p>}
-              </button>
-            ))}
-          </div>
+          <AdvancedStats stats={stats} trend={collectionTrend} formatCurrency={formatCurrency} />
 
           {/* Monthly Performance */}
           <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 md:gap-5">
@@ -364,11 +369,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* Expected Interest */}
-          <div className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200">
-            <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-4">Expected Interest (Next 30 Days)</h2>
-            <p className="text-2xl md:text-3xl font-bold text-gray-900">{formatCurrency(stats.expectedInterest30Days)}</p>
-          </div>
         </>
       )}
     </div>
