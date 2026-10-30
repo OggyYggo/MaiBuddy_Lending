@@ -199,7 +199,7 @@ export default function PublicApplicationPage() {
 
             <label className="flex items-start gap-3 border-t border-slate-100 pt-5 text-sm leading-5 text-slate-600">
               <input className="mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" type="checkbox" required checked={form.consent} onChange={(event) => handleChange('consent', event.target.checked)} />
-              <span>I confirm that the information I provided is accurate and consent to MaiBuddy Lending using it to review this loan application.</span>
+              <span>I confirm that the information I provided is accurate and consent for using it to review this loan application.</span>
             </label>
 
             <p className="text-xs leading-5 text-slate-500">Please do not submit passwords or bank account credentials. Supporting document uploads can be provided to staff during review.</p>
