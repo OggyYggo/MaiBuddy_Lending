@@ -117,7 +117,7 @@ export default function PublicApplicationPage() {
             <h2 className="mt-4 text-xl font-semibold text-slate-900">Application submitted</h2>
             <p className="mt-2 text-sm text-slate-600">Our team will review your request. Keep this reference number for your records:</p>
             <p className="mt-3 inline-flex rounded-lg bg-slate-100 px-4 py-2 font-mono text-lg font-semibold text-slate-800">{reference}</p>
-            <p className="mt-4 text-xs text-slate-500">You may close this page. Contact MaiBuddy Lending if you have questions about your application.</p>
+            <p className="mt-4 text-xs text-slate-500">You may close this page. Please Contact if you have questions about your application.</p>
           </section>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
