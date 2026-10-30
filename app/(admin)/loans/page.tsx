@@ -45,22 +45,23 @@ export default function LoansPage() {
     } else {
       const fetchedLoans = data || []
       const loanIds = fetchedLoans.map((loan) => loan.id)
-      const latestBalances = new Map<string, number>()
+      const principalPaidByLoan = new Map<string, number>()
 
       if (loanIds.length > 0) {
         const { data: ledgerEntries, error: ledgerError } = await supabase
           .from('ledger_entries')
-          .select('loan_id, balance_after, created_at, id')
+          .select('loan_id, amount, type')
           .in('loan_id', loanIds)
-          .order('created_at', { ascending: false })
-          .order('id', { ascending: false })
 
         if (ledgerError) {
           console.error('Error fetching loan ledger balances:', ledgerError)
         } else {
           for (const entry of ledgerEntries || []) {
-            if (!latestBalances.has(entry.loan_id)) {
-              latestBalances.set(entry.loan_id, Number(entry.balance_after))
+            if (entry.type === 'principal') {
+              principalPaidByLoan.set(
+                entry.loan_id,
+                (principalPaidByLoan.get(entry.loan_id) || 0) + Number(entry.amount),
+              )
             }
           }
         }
@@ -68,7 +69,10 @@ export default function LoansPage() {
 
       setLoans(fetchedLoans.map((loan) => ({
         ...loan,
-        outstandingBalance: latestBalances.get(loan.id) ?? Number(loan.principal),
+        outstandingBalance: Math.max(
+          0,
+          Number(loan.principal) - (principalPaidByLoan.get(loan.id) || 0),
+        ),
       })))
     }
     setLoading(false)
