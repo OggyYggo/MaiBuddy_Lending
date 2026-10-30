@@ -198,7 +198,10 @@ export default function ApplicationsPage() {
       })
       setSaving(false)
       if (error || !loanId) {
-        void showSweetAlert('error', 'Application not updated', error?.message || 'The linked loan could not be updated.')
+        const errorMessage = error?.code === 'PGRST202'
+          ? 'The application edit database function is not installed yet. Apply the Supabase migrations 20261030120000_application_approval_and_lump_sum.sql and 20261030130000_edit_approved_pending_applications.sql, then try again.'
+          : error?.message || 'The linked loan could not be updated.'
+        void showSweetAlert('error', 'Application not updated', errorMessage)
         return
       }
       await showSweetAlert('success', 'Application updated', 'The application and pending loan schedule have been updated.')
@@ -231,8 +234,11 @@ export default function ApplicationsPage() {
     })
     setSaving(false)
     if (approvalError || !loanId) {
-      console.error('Error approving application:', approvalError)
-      void showSweetAlert('error', 'Application saved, approval failed', approvalError?.message || 'No loan was created. You can edit and save this application again.')
+      console.error('Error approving application:', approvalError?.code, approvalError?.message, approvalError?.details)
+      const errorMessage = approvalError?.code === 'PGRST202'
+        ? 'The approval database function is not installed yet. Apply the Supabase migrations 20261030120000_application_approval_and_lump_sum.sql and 20261030130000_edit_approved_pending_applications.sql, then edit this saved draft and save it again.'
+        : approvalError?.message || 'No loan was created. This application remains saved as a draft and can be retried.'
+      void showSweetAlert('error', 'Application saved, approval failed', errorMessage)
       await fetchApplications()
       return
     }

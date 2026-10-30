@@ -154,7 +154,10 @@ export default function ApplicationDetailPage() {
         p_monthly_rate: monthlyRate,
       })
       if (error || !loanId) {
-        void showSweetAlert('error', 'Application not approved', error?.message || 'A loan could not be created.')
+        const errorMessage = error?.code === 'PGRST202'
+          ? 'The approval database function is not installed yet. Apply the pending Supabase migrations, then try again.'
+          : error?.message || 'A loan could not be created.'
+        void showSweetAlert('error', 'Application not approved', errorMessage)
         return
       }
       await showSweetAlert('success', 'Application approved', 'The loan is ready for disbursement.')
