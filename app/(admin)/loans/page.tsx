@@ -6,6 +6,7 @@ import type { Database } from '@/types/supabase'
 
 type Loan = Database['public']['Tables']['loans']['Row'] & {
   borrowers: Database['public']['Tables']['borrowers']['Row']
+  outstandingBalance: number
 }
 
 export default function LoansPage() {
@@ -42,7 +43,33 @@ export default function LoansPage() {
     if (error) {
       console.error('Error fetching loans:', error)
     } else {
-      setLoans(data || [])
+      const fetchedLoans = data || []
+      const loanIds = fetchedLoans.map((loan) => loan.id)
+      const latestBalances = new Map<string, number>()
+
+      if (loanIds.length > 0) {
+        const { data: ledgerEntries, error: ledgerError } = await supabase
+          .from('ledger_entries')
+          .select('loan_id, balance_after, created_at, id')
+          .in('loan_id', loanIds)
+          .order('created_at', { ascending: false })
+          .order('id', { ascending: false })
+
+        if (ledgerError) {
+          console.error('Error fetching loan ledger balances:', ledgerError)
+        } else {
+          for (const entry of ledgerEntries || []) {
+            if (!latestBalances.has(entry.loan_id)) {
+              latestBalances.set(entry.loan_id, Number(entry.balance_after))
+            }
+          }
+        }
+      }
+
+      setLoans(fetchedLoans.map((loan) => ({
+        ...loan,
+        outstandingBalance: latestBalances.get(loan.id) ?? Number(loan.principal),
+      })))
     }
     setLoading(false)
   }
@@ -209,13 +236,16 @@ export default function LoansPage() {
                     Borrower
                   </th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Principal
+                    Loan Amount
+                  </th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Outstanding Balance
                   </th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                     Term
                   </th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
-                    Style
+                    Type
                   </th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -239,6 +269,11 @@ export default function LoansPage() {
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         ₱{loan.principal.toLocaleString()}
+                      </div>
+                    </td>
+                    <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {'₱'}{(Number(loan.outstandingBalance ?? loan.principal) || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </div>
                     </td>
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden sm:table-cell">

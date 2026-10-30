@@ -7,10 +7,7 @@ type ApplicationForm = {
   birth_date: string
   phone: string
   address: string
-  employer: string
   monthly_income: string
-  id_type: string
-  id_number: string
   amount: string
   term_months: string
   purpose: string
@@ -24,10 +21,7 @@ const initialForm: ApplicationForm = {
   birth_date: '',
   phone: '',
   address: '',
-  employer: '',
   monthly_income: '',
-  id_type: '',
-  id_number: '',
   amount: '',
   term_months: '',
   purpose: '',
@@ -61,10 +55,7 @@ export default function PublicApplicationPage() {
           ...form,
           amount: Number(form.amount),
           term_months: Number(form.term_months),
-          employer: form.employer.trim() || null,
           monthly_income: form.monthly_income.trim() ? Number(form.monthly_income) : null,
-          id_type: form.id_type.trim() || null,
-          id_number: form.id_number.trim() || null,
         }),
       })
       const result = await response.json().catch(() => ({}))
@@ -129,20 +120,8 @@ export default function PublicApplicationPage() {
                   <input className={inputClass} autoComplete="street-address" required maxLength={300} value={form.address} onChange={(event) => handleChange('address', event.target.value)} />
                 </label>
                 <label className={labelClass}>
-                  Employer <span className="font-normal text-slate-400">(optional)</span>
-                  <input className={inputClass} autoComplete="organization" maxLength={150} value={form.employer} onChange={(event) => handleChange('employer', event.target.value)} />
-                </label>
-                <label className={labelClass}>
                   Monthly income <span className="font-normal text-slate-400">(optional)</span>
                   <input className={inputClass} type="number" min="0" max="999999999999.99" step="0.01" inputMode="decimal" value={form.monthly_income} onChange={(event) => handleChange('monthly_income', event.target.value)} />
-                </label>
-                <label className={labelClass}>
-                  Government ID type <span className="font-normal text-slate-400">(optional)</span>
-                  <input className={inputClass} maxLength={80} value={form.id_type} onChange={(event) => handleChange('id_type', event.target.value)} />
-                </label>
-                <label className={labelClass}>
-                  ID number <span className="font-normal text-slate-400">(optional)</span>
-                  <input className={inputClass} maxLength={100} value={form.id_number} onChange={(event) => handleChange('id_number', event.target.value)} />
                 </label>
               </div>
             </section>
