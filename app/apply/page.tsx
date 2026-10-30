@@ -1,6 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import Decimal from 'decimal.js'
+import { generateSchedule } from '@/lib/loan/engine'
 
 type ApplicationForm = {
   full_name: string
@@ -37,6 +39,17 @@ export default function PublicApplicationPage() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [reference, setReference] = useState('')
+  const [monthlyRate, setMonthlyRate] = useState(0.05)
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((response) => response.ok ? response.json() : null)
+      .then((settings) => {
+        const configuredRate = Number(settings?.monthly_rate)
+        if (Number.isFinite(configuredRate) && configuredRate >= 0) setMonthlyRate(configuredRate)
+      })
+      .catch((loadError) => console.error('Could not load the default interest rate:', loadError))
+  }, [])
 
   const handleChange = <K extends keyof ApplicationForm>(field: K, value: ApplicationForm[K]) => {
     setForm((current) => ({ ...current, [field]: value }))
@@ -76,6 +89,17 @@ export default function PublicApplicationPage() {
 
   const inputClass = 'mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3.5 py-3 text-sm text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100'
   const labelClass = 'block text-sm font-medium text-slate-700'
+  const amount = Number(form.amount)
+  const termMonths = Number(form.term_months)
+  const estimate = Number.isFinite(amount) && amount > 0 && Number.isInteger(termMonths) && termMonths > 0
+    ? generateSchedule({
+        principal: new Decimal(amount),
+        rate: new Decimal(monthlyRate),
+        months: termMonths,
+        style: form.repayment_style,
+        startDate: new Date(),
+      })
+    : []
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-800 sm:py-12">
@@ -149,6 +173,22 @@ export default function PublicApplicationPage() {
                   <textarea className={inputClass} required minLength={3} maxLength={500} rows={3} value={form.purpose} onChange={(event) => handleChange('purpose', event.target.value)} />
                 </label>
               </div>
+              {estimate.length > 0 && (
+                <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/70 p-4" aria-live="polite">
+                  <p className="text-sm font-medium text-indigo-700">
+                    {form.repayment_style === 'LUMP_SUM' ? 'Estimated amount due at maturity' : 'Estimated first monthly payment'}
+                  </p>
+                  <p className="mt-1 text-2xl font-semibold text-slate-900">
+                    {'₱'}{estimate[0].totalDue.toNumber().toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </p>
+                  <p className="mt-2 text-xs leading-5 text-slate-600">
+                    {form.repayment_style === 'LUMP_SUM'
+                      ? `One payment after ${termMonths} months, based on a ${(monthlyRate * 100).toFixed(2)}% monthly interest rate.`
+                      : `Estimated using a ${(monthlyRate * 100).toFixed(2)}% monthly interest rate. Installment payments may decrease over the term as the principal balance falls.`}
+                    {' '}The final terms and payment amount are subject to review.
+                  </p>
+                </div>
+              )}
             </section>
 
             <div className="sr-only" aria-hidden="true">

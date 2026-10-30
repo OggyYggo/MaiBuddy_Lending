@@ -57,6 +57,9 @@ export function generateSchedule(input: GenerateScheduleInput): ScheduleItem[] {
     if (style === "EQUAL_PRINCIPAL") {
       principalDue = principal.div(months)
       totalDue = principalDue.add(interest)
+    } else if (rate.isZero()) {
+      principalDue = principal.div(months)
+      totalDue = principalDue
     } else {
       const r = rate
       const n = months
@@ -173,6 +176,9 @@ export function regenerateSchedule(loan: LoanState, fromDate: Date): ScheduleIte
     if (loan.repaymentStyle === "EQUAL_PRINCIPAL") {
       principalDue = loan.principal.div(loan.termMonths)
       totalDue = principalDue.add(interest)
+    } else if (loan.rate.isZero()) {
+      principalDue = loan.principal.div(loan.termMonths)
+      totalDue = principalDue
     } else {
       const r = loan.rate
       const n = loan.termMonths
