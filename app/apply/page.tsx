@@ -105,7 +105,6 @@ export default function PublicApplicationPage() {
     <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-800 sm:py-12">
       <div className="mx-auto max-w-3xl">
         <header className="mb-6 text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-indigo-600">MaiBuddy Lending</p>
           <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Loan Application</h1>
           <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">
             Complete this form to send your loan request to our team for review. Submitting an application does not guarantee approval.
