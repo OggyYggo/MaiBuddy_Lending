@@ -115,6 +115,15 @@ export default function LoansPage() {
     setSavingLoan(false)
   }
 
+  const totalLoanAmount = loans.reduce((total, loan) => total + Number(loan.principal || 0), 0)
+  const totalOutstandingBalance = loans.reduce(
+    (total, loan) => total + Number(loan.outstandingBalance ?? loan.principal ?? 0),
+    0,
+  )
+  const activeLoans = loans.filter(loan => loan.status === 'active').length
+  const overdueLoans = loans.filter(loan => loan.status === 'overdue').length
+  const formatCurrency = (amount: number) => `\u20B1${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
@@ -135,6 +144,102 @@ export default function LoansPage() {
             <option value="paid">Paid</option>
             <option value="written_off">Written Off</option>
           </select>
+        </div>
+      </div>
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="group relative overflow-hidden rounded-2xl border border-slate-200/50 bg-gradient-to-br from-white to-slate-50 p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <svg className="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05 1.18 1.91 2.53 1.91 1.29 0 2.13-.72 2.13-1.71 0-2.69-4.52-2.32-4.52-5.52 0-1.76 1.36-3.12 3.17-3.43V3.99h2.67v1.93c1.38.34 2.76 1.4 2.84 3.17h-1.92c-.09-.83-.93-1.63-2.15-1.63-1.1 0-1.84.58-1.84 1.47 0 2.68 4.52 2.27 4.52 5.53 0 1.95-1.54 3.34-3.45 3.63z"/>
+            </svg>
+          </div>
+          <div className="relative">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/10">
+                <svg className="h-5 w-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-slate-500">Total Loan Amount</p>
+            </div>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
+              {loading ? '...' : formatCurrency(totalLoanAmount)}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {loans.length} {loans.length === 1 ? 'loan' : 'loans'} total
+            </p>
+          </div>
+        </div>
+
+        <div className="group relative overflow-hidden rounded-2xl border border-emerald-200/50 bg-gradient-to-br from-emerald-50/50 to-white p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <svg className="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05 1.18 1.91 2.53 1.91 1.29 0 2.13-.72 2.13-1.71 0-2.69-4.52-2.32-4.52-5.52 0-1.76 1.36-3.12 3.17-3.43V3.99h2.67v1.93c1.38.34 2.76 1.4 2.84 3.17h-1.92c-.09-.83-.93-1.63-2.15-1.63-1.1 0-1.84.58-1.84 1.47 0 2.68 4.52 2.27 4.52 5.53 0 1.95-1.54 3.34-3.45 3.63z"/>
+            </svg>
+          </div>
+          <div className="relative">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10">
+                <svg className="h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-slate-500">Outstanding Balance</p>
+            </div>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
+              {loading ? '...' : formatCurrency(totalOutstandingBalance)}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">Latest ledger balances</p>
+          </div>
+        </div>
+
+        <div className="group relative overflow-hidden rounded-2xl border border-amber-200/50 bg-gradient-to-br from-amber-50/50 to-white p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <svg className="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05 1.18 1.91 2.53 1.91 1.29 0 2.13-.72 2.13-1.71 0-2.69-4.52-2.32-4.52-5.52 0-1.76 1.36-3.12 3.17-3.43V3.99h2.67v1.93c1.38.34 2.76 1.4 2.84 3.17h-1.92c-.09-.83-.93-1.63-2.15-1.63-1.1 0-1.84.58-1.84 1.47 0 2.68 4.52 2.27 4.52 5.53 0 1.95-1.54 3.34-3.45 3.63z"/>
+            </svg>
+          </div>
+          <div className="relative">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10">
+                <svg className="h-5 w-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-slate-500">Active Loans</p>
+            </div>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
+              {loading ? '...' : activeLoans}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {loans.length > 0 ? `${((activeLoans / loans.length) * 100).toFixed(0)}% of total` : 'No loans'}
+            </p>
+          </div>
+        </div>
+
+        <div className="group relative overflow-hidden rounded-2xl border border-rose-200/50 bg-gradient-to-br from-rose-50/50 to-white p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <svg className="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.67v-1.93c-1.71-.36-3.16-1.46-3.27-3.4h1.96c.1 1.05 1.18 1.91 2.53 1.91 1.29 0 2.13-.72 2.13-1.71 0-2.69-4.52-2.32-4.52-5.52 0-1.76 1.36-3.12 3.17-3.43V3.99h2.67v1.93c1.38.34 2.76 1.4 2.84 3.17h-1.92c-.09-.83-.93-1.63-2.15-1.63-1.1 0-1.84.58-1.84 1.47 0 2.68 4.52 2.27 4.52 5.53 0 1.95-1.54 3.34-3.45 3.63z"/>
+            </svg>
+          </div>
+          <div className="relative">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/10">
+                <svg className="h-5 w-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <p className="text-sm font-medium text-slate-500">Overdue Loans</p>
+            </div>
+            <p className="mt-3 text-2xl font-bold tracking-tight text-slate-900">
+              {loading ? '...' : overdueLoans}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              {loans.length > 0 ? `${((overdueLoans / loans.length) * 100).toFixed(0)}% of total` : 'No loans'}
+            </p>
+          </div>
         </div>
       </div>
 
