@@ -29,6 +29,7 @@ export default function ApplicationsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingApplicationId, setEditingApplicationId] = useState<string | null>(null)
   const [editingApprovedApplication, setEditingApprovedApplication] = useState(false)
+  const [editingRecordOnly, setEditingRecordOnly] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<Record<string, string>>({})
@@ -183,6 +184,58 @@ export default function ApplicationsPage() {
     }
 
     setSaving(true)
+    if (editingApplicationId && editingRecordOnly) {
+      const { data: updated, error } = await supabase
+        .from('applications')
+        .update(applicationData)
+        .eq('id', editingApplicationId)
+        .select('id')
+        .single()
+      if (error || !updated) {
+        setSaving(false)
+        void showSweetAlert('error', 'Application not updated', error?.message || 'The application record could not be updated.')
+        return
+      }
+
+      const { data: { user } } = await supabase.auth.getUser()
+      const original = applications.find((application) => application.id === editingApplicationId)
+      const { error: auditError } = await supabase.from('audit_logs').insert({
+        actor_id: user?.id || null,
+        action: 'edit_application_record',
+        entity: 'application',
+        entity_id: editingApplicationId,
+        before_data: original ? {
+          borrower_id: original.borrower_id,
+          amount: original.amount,
+          borrowed_date: original.borrowed_date,
+          term_months: original.term_months,
+          purpose: original.purpose,
+          repayment_style: original.repayment_style,
+        } : null,
+        after_data: {
+          borrower_id: applicationData.borrower_id,
+          amount: applicationData.amount,
+          borrowed_date: applicationData.borrowed_date,
+          term_months: applicationData.term_months,
+          purpose: applicationData.purpose,
+          repayment_style: applicationData.repayment_style,
+          record_only: true,
+        },
+      })
+      setSaving(false)
+      if (auditError) {
+        console.error('Application updated but audit log could not be written:', auditError.message)
+        void showSweetAlert('warning', 'Application updated', 'The application record was updated, but its audit entry could not be saved. Any issued loan and payment history remain unchanged.')
+      } else {
+        void showSweetAlert('success', 'Application updated', 'The application record was updated. Any issued loan and payment history remain unchanged.')
+      }
+      setShowForm(false)
+      setEditingApplicationId(null)
+      setEditingRecordOnly(false)
+      await fetchApplications()
+      return
+    }
+
     if (editingApplicationId && editingApprovedApplication) {
       const { data: loanId, error } = await supabase.rpc('update_pending_application_and_loan', {
         p_application_id: editingApplicationId,
@@ -249,7 +302,9 @@ export default function ApplicationsPage() {
   }
 
   const handleEdit = (application: Application) => {
-    setEditingApprovedApplication(application.status === 'approved')
+    const hasPendingLoan = Boolean(pendingLoanIds[application.id])
+    setEditingApprovedApplication(application.status === 'approved' && hasPendingLoan)
+    setEditingRecordOnly(application.status !== 'draft' && application.status !== 'in_review' && !hasPendingLoan)
     const borrower = borrowers.find((b) => b.id === application.borrower_id)
     setEditingApplicationId(application.id)
     setFormData({
@@ -327,6 +382,8 @@ export default function ApplicationsPage() {
           onClick={() => {
             setEditingApplicationId(null)
             setEditingApprovedApplication(false)
+          setEditingRecordOnly(false)
+            setEditingRecordOnly(false)
             setFormData({ borrower_id: '', borrower_name: '', amount: '', borrowed_date: todayDateInput(), term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL', custom_rate: '', rate_override_reason: '' })
             setBorrowerSearch('')
             setSchedulePreview([])
@@ -342,6 +399,11 @@ export default function ApplicationsPage() {
         <div className="bg-white p-4 md:p-6 rounded-lg shadow border border-gray-200 mb-6">
           <h2 className="text-base md:text-lg font-semibold mb-4">{editingApplicationId ? 'Edit Loan Application' : 'New Loan Application'}</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {editingRecordOnly && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                This edits the application record only. Any issued loan, repayment schedule, and payment history will remain unchanged.
+              </div>
+            )}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="relative sm:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -541,7 +603,7 @@ export default function ApplicationsPage() {
                 disabled={saving}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
               >
-                {saving ? 'Saving…' : editingApprovedApplication ? 'Save Changes' : 'Save & Approve'}
+                {saving ? 'Saving…' : editingApplicationId && (editingApprovedApplication || editingRecordOnly) ? 'Save Changes' : 'Save & Approve'}
               </button>
               <button
                 type="button"
@@ -549,6 +611,7 @@ export default function ApplicationsPage() {
                   setShowForm(false)
                   setEditingApplicationId(null)
                   setEditingApprovedApplication(false)
+                  setEditingRecordOnly(false)
                   setSchedulePreview([])
                 }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
@@ -649,33 +712,22 @@ export default function ApplicationsPage() {
                       >
                         Review
                       </a>
+                      <button
+                        type="button"
+                        onClick={() => handleEdit(app)}
+                        className="ml-2 md:ml-3 text-indigo-600 hover:text-indigo-900"
+                      >
+                        Edit
+                      </button>
                       {(app.status === 'draft' || app.status === 'in_review') && (
-                        <>
-                          <button
-                            type="button"
-                            onClick={() => handleEdit(app)}
-                            className="ml-2 md:ml-3 text-indigo-600 hover:text-indigo-900"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(app)}
-                            className="ml-2 md:ml-3 text-red-600 hover:text-red-800"
-                          >
-                            Delete
-                          </button>
-                        </>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(app)}
+                          className="ml-2 md:ml-3 text-red-600 hover:text-red-800"
+                        >
+                          Delete
+                        </button>
                       )}
-                  {app.status === 'approved' && pendingLoanIds[app.id] && (
-                    <button
-                      type="button"
-                      onClick={() => handleEdit(app)}
-                      className="ml-2 md:ml-3 text-indigo-600 hover:text-indigo-900"
-                    >
-                      Edit
-                    </button>
-                  )}
                     </td>
                   </tr>
                 ))}

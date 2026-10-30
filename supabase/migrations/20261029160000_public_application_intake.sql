@@ -70,7 +70,7 @@ BEGIN
     OR NULLIF(BTRIM(p_purpose), '') IS NULL
     OR LENGTH(BTRIM(p_purpose)) > 500
     OR p_repayment_style IS NULL
-    OR p_repayment_style NOT IN ('EQUAL_PRINCIPAL', 'EQUAL_PAYMENT')
+    OR p_repayment_style NOT IN ('EQUAL_PRINCIPAL', 'EQUAL_PAYMENT', 'LUMP_SUM')
     OR (p_monthly_income IS NOT NULL AND (p_monthly_income < 0 OR p_monthly_income > 999999999999.99)) THEN
     RAISE EXCEPTION 'Invalid application details';
   END IF;
