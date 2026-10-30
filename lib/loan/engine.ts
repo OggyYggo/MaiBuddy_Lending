@@ -16,6 +16,28 @@ export function generateSchedule(input: GenerateScheduleInput): ScheduleItem[] {
   const schedule: ScheduleItem[] = []
   let balance = principal
 
+  if (style === "LUMP_SUM") {
+    const dueDate = new Date(startDate)
+    const dueDay = dueDate.getDate()
+    dueDate.setDate(1)
+    dueDate.setMonth(dueDate.getMonth() + months)
+    const lastDay = new Date(dueDate.getFullYear(), dueDate.getMonth() + 1, 0).getDate()
+    dueDate.setDate(Math.min(dueDay, lastDay))
+    const interest = rate.mul(principal).mul(months).toDecimalPlaces(2)
+
+    return [{
+      installmentNo: 1,
+      dueDate,
+      principalDue: principal.toDecimalPlaces(2),
+      interestDue: interest,
+      totalDue: principal.add(interest).toDecimalPlaces(2),
+      principalPaid: new Decimal(0),
+      interestPaid: new Decimal(0),
+      balanceAfter: new Decimal(0),
+      status: "PENDING",
+    }]
+  }
+
   for (let i = 0; i < months; i++) {
     const dueMonth = new Date(startDate)
     const dueDay = dueMonth.getDate()
@@ -127,6 +149,19 @@ export function regenerateSchedule(loan: LoanState, fromDate: Date): ScheduleIte
   const fromIndex = schedule.findIndex((item) => item.dueDate >= fromDate)
 
   if (fromIndex === -1) return schedule
+
+  if (loan.repaymentStyle === "LUMP_SUM") {
+    const item = schedule[fromIndex]
+    const interest = loan.rate.mul(loan.principal).mul(loan.termMonths).toDecimalPlaces(2)
+    schedule[fromIndex] = {
+      ...item,
+      principalDue: loan.principal.toDecimalPlaces(2),
+      interestDue: interest,
+      totalDue: loan.principal.add(interest).toDecimalPlaces(2),
+      balanceAfter: new Decimal(0),
+    }
+    return schedule
+  }
 
   let balance = loan.balance
   for (let i = fromIndex; i < schedule.length; i++) {

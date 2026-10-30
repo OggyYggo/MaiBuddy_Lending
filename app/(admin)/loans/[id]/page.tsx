@@ -180,7 +180,7 @@ export default function LoanDetailPage() {
             <p>
               <span className="text-sm text-gray-500">Repayment Style:</span>{' '}
               <span className="text-gray-900">
-                {loan.repayment_style.replace('_', ' ')}
+                {loan.repayment_style === 'LUMP_SUM' ? 'Lump Sum' : loan.repayment_style === 'EQUAL_PRINCIPAL' ? 'Installment' : 'Equal Payment'}
               </span>
             </p>
             <p>

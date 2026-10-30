@@ -177,7 +177,7 @@ export interface Database {
           borrowed_date: string
           term_months: number
           purpose: string | null
-          repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
+          repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM'
           status: 'draft' | 'in_review' | 'approved' | 'declined' | 'withdrawn'
           decided_by: string | null
           decision_reason: string | null
@@ -197,7 +197,7 @@ export interface Database {
           borrowed_date?: string
           term_months: number
           purpose?: string | null
-          repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
+          repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM'
           status?: 'draft' | 'in_review' | 'approved' | 'declined' | 'withdrawn'
           decided_by?: string | null
           decision_reason?: string | null
@@ -217,7 +217,7 @@ export interface Database {
           borrowed_date?: string
           term_months?: number
           purpose?: string | null
-          repayment_style?: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
+          repayment_style?: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM'
           status?: 'draft' | 'in_review' | 'approved' | 'declined' | 'withdrawn'
           decided_by?: string | null
           decision_reason?: string | null
@@ -239,7 +239,7 @@ export interface Database {
           principal: number
           monthly_rate: number
           term_months: number
-          repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
+          repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM'
           disbursed_at: string | null
           maturity_date: string | null
           status: 'pending_disbursement' | 'active' | 'overdue' | 'paid' | 'written_off'
@@ -253,7 +253,7 @@ export interface Database {
           principal: number
           monthly_rate: number
           term_months: number
-          repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
+          repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM'
           disbursed_at?: string | null
           maturity_date?: string | null
           status?: 'pending_disbursement' | 'active' | 'overdue' | 'paid' | 'written_off'
@@ -267,7 +267,7 @@ export interface Database {
           principal?: number
           monthly_rate?: number
           term_months?: number
-          repayment_style?: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
+          repayment_style?: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM'
           disbursed_at?: string | null
           maturity_date?: string | null
           status?: 'pending_disbursement' | 'active' | 'overdue' | 'paid' | 'written_off'
@@ -459,10 +459,29 @@ export interface Database {
           p_amount: number
           p_term_months: number
           p_purpose: string
-          p_repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
+          p_repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM'
           p_submission_fingerprint: string
         }
         Returns: { application_reference: string }[]
+      }
+      approve_application_and_create_loan: {
+        Args: { p_application_id: string; p_monthly_rate: number }
+        Returns: string
+      }
+      update_pending_application_and_loan: {
+        Args: {
+          p_application_id: string
+          p_borrower_id: string
+          p_amount: number
+          p_borrowed_date: string
+          p_term_months: number
+          p_purpose: string | null
+          p_repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM'
+          p_monthly_rate: number
+          p_custom_rate: number | null
+          p_rate_override_reason: string | null
+        }
+        Returns: string
       }
       record_payment: {
         Args: {

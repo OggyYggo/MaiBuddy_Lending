@@ -18,7 +18,7 @@ export default function LoansPage() {
     principal: '',
     monthly_rate: '',
     term_months: '',
-    repayment_style: 'EQUAL_PRINCIPAL' as 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT',
+    repayment_style: 'EQUAL_PRINCIPAL' as 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM',
   })
   const supabase = createClient()
 
@@ -172,8 +172,9 @@ export default function LoansPage() {
                 onChange={(event) => setEditValues({ ...editValues, repayment_style: event.target.value as typeof editValues.repayment_style })}
                 className="mt-1.5 w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-slate-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100"
               >
-                <option value="EQUAL_PRINCIPAL">Equal principal</option>
-                <option value="EQUAL_PAYMENT">Equal payment</option>
+                <option value="EQUAL_PRINCIPAL">Installment</option>
+                <option value="EQUAL_PAYMENT">Equal payment (legacy)</option>
+                <option value="LUMP_SUM">Lump Sum</option>
               </select>
             </label>
             <div className="flex gap-3 sm:col-span-2 xl:col-span-4">

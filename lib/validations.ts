@@ -26,7 +26,7 @@ export const applicationSchema = z.object({
   amount: z.string().min(1, "Amount is required"),
   term_months: z.string().min(1, "Term is required"),
   purpose: z.string().optional(),
-  repayment_style: z.enum(["EQUAL_PRINCIPAL", "EQUAL_PAYMENT"]),
+  repayment_style: z.enum(["EQUAL_PRINCIPAL", "EQUAL_PAYMENT", "LUMP_SUM"]),
 })
 
 export type ApplicationInput = z.infer<typeof applicationSchema>
@@ -46,7 +46,7 @@ export const publicLoanApplicationSchema = z.object({
   amount: z.number().finite().positive().max(999999999999.99),
   term_months: z.number().int().min(1).max(120),
   purpose: z.string().trim().min(3, 'Tell us what the loan is for').max(500),
-  repayment_style: z.enum(['EQUAL_PRINCIPAL', 'EQUAL_PAYMENT']),
+  repayment_style: z.enum(['EQUAL_PRINCIPAL', 'EQUAL_PAYMENT', 'LUMP_SUM']),
   consent: z.literal(true, 'Consent is required to submit an application'),
 })
 

@@ -1,6 +1,6 @@
 import Decimal from "decimal.js"
 
-export type RepaymentStyle = "EQUAL_PRINCIPAL" | "EQUAL_PAYMENT"
+export type RepaymentStyle = "EQUAL_PRINCIPAL" | "EQUAL_PAYMENT" | "LUMP_SUM"
 
 export interface ScheduleItem {
   installmentNo: number

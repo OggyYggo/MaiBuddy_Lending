@@ -8,7 +8,7 @@ export default function CalculatorPage() {
   const [amount, setAmount] = useState('')
   const [termMonths, setTermMonths] = useState('')
   const [rate, setRate] = useState('5')
-  const [repaymentStyle, setRepaymentStyle] = useState<'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'>('EQUAL_PRINCIPAL')
+  const [repaymentStyle, setRepaymentStyle] = useState<'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM'>('EQUAL_PRINCIPAL')
   const [schedule, setSchedule] = useState<any[]>([])
   const [settings, setSettings] = useState({ minRate: 1, maxRate: 10, defaultRate: 5 })
 
@@ -123,8 +123,8 @@ export default function CalculatorPage() {
                     onChange={(e) => setRepaymentStyle(e.target.value as any)}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   >
-                    <option value="EQUAL_PRINCIPAL">Equal Principal</option>
-                    <option value="EQUAL_PAYMENT">Equal Payment (Amortized)</option>
+                    <option value="EQUAL_PRINCIPAL">Installment</option>
+                    <option value="LUMP_SUM">Lump Sum</option>
                   </select>
                 </div>
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import { generateSchedule } from '@/lib/loan/engine'
 import Decimal from 'decimal.js'
@@ -24,11 +25,15 @@ const dateInputToLocalDate = (value: string) => {
 export default function ApplicationsPage() {
   const [applications, setApplications] = useState<Application[]>([])
   const [borrowers, setBorrowers] = useState<Borrower[]>([])
+  const [pendingLoanIds, setPendingLoanIds] = useState<Record<string, string>>({})
   const [showForm, setShowForm] = useState(false)
   const [editingApplicationId, setEditingApplicationId] = useState<string | null>(null)
+  const [editingApprovedApplication, setEditingApprovedApplication] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<Record<string, string>>({})
   const supabase = createClient()
+  const router = useRouter()
 
   const [formData, setFormData] = useState({
     borrower_id: '',
@@ -37,7 +42,7 @@ export default function ApplicationsPage() {
     borrowed_date: todayDateInput(),
     term_months: '',
     purpose: '',
-    repayment_style: 'EQUAL_PRINCIPAL' as 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT',
+    repayment_style: 'EQUAL_PRINCIPAL' as 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM',
     custom_rate: '',
     rate_override_reason: '',
   })
@@ -63,6 +68,20 @@ export default function ApplicationsPage() {
       console.error('Error fetching applications:', error)
     } else {
       setApplications(data || [])
+      const { data: loans, error: loansError } = await supabase
+        .from('loans')
+        .select('id, application_id, status, disbursed_at')
+        .eq('status', 'pending_disbursement')
+        .is('disbursed_at', null)
+      if (loansError) {
+        console.error('Error fetching pending application loans:', loansError)
+      } else {
+        const loanIdsByApplication: Record<string, string> = {}
+        for (const loan of loans || []) {
+          if (loan.application_id) loanIdsByApplication[loan.application_id] = loan.id
+        }
+        setPendingLoanIds(loanIdsByApplication)
+      }
     }
     setLoading(false)
   }
@@ -158,36 +177,73 @@ export default function ApplicationsPage() {
       custom_rate: formData.custom_rate ? parseFloat(formData.custom_rate) : null,
       rate_override_reason: formData.custom_rate ? formData.rate_override_reason : null,
     }
-    const result = editingApplicationId
-      ? await supabase.from('applications').update(applicationData).eq('id', editingApplicationId)
-      : await supabase.from('applications').insert({ ...applicationData, status: 'draft' })
-    const { error } = result
-
-    if (error) {
-      console.error('Error saving application:', error)
-      void showSweetAlert('error', 'Application not saved', `Failed to ${editingApplicationId ? 'update' : 'create'} application: ${error.message}`)
-    } else {
-      void showSweetToast('success', `Application ${editingApplicationId ? 'updated' : 'created'} successfully`)
-      setShowForm(false)
-      setEditingApplicationId(null)
-      setFormData({
-        borrower_id: '',
-        borrower_name: '',
-        amount: '',
-        borrowed_date: todayDateInput(),
-        term_months: '',
-        purpose: '',
-        repayment_style: 'EQUAL_PRINCIPAL',
-        custom_rate: '',
-        rate_override_reason: '',
-      })
-      setBorrowerSearch('')
-      setSchedulePreview([])
-      fetchApplications()
+    if (!applicationData.borrower_id || !applicationData.term_months) {
+      void showSweetAlert('warning', 'Application incomplete', 'Select a borrower and enter the loan term.')
+      return
     }
+
+    setSaving(true)
+    if (editingApplicationId && editingApprovedApplication) {
+      const { data: loanId, error } = await supabase.rpc('update_pending_application_and_loan', {
+        p_application_id: editingApplicationId,
+        p_borrower_id: applicationData.borrower_id,
+        p_amount: applicationData.amount,
+        p_borrowed_date: applicationData.borrowed_date,
+        p_term_months: applicationData.term_months,
+        p_purpose: applicationData.purpose,
+        p_repayment_style: applicationData.repayment_style,
+        p_monthly_rate: applicationData.custom_rate ?? (settings.monthly_rate ? parseFloat(settings.monthly_rate) : 0.05),
+        p_custom_rate: applicationData.custom_rate,
+        p_rate_override_reason: applicationData.rate_override_reason,
+      })
+      setSaving(false)
+      if (error || !loanId) {
+        void showSweetAlert('error', 'Application not updated', error?.message || 'The linked loan could not be updated.')
+        return
+      }
+      await showSweetAlert('success', 'Application updated', 'The application and pending loan schedule have been updated.')
+      router.push(`/loans/${loanId}`)
+      router.refresh()
+      return
+    }
+
+    let applicationId = editingApplicationId
+    if (applicationId) {
+      const { error } = await supabase.from('applications').update(applicationData).eq('id', applicationId)
+      if (error) {
+        setSaving(false)
+        void showSweetAlert('error', 'Application not saved', `Could not update this application: ${error.message}`)
+        return
+      }
+    } else {
+      const { data, error } = await supabase.from('applications').insert({ ...applicationData, status: 'draft' }).select('id').single()
+      if (error || !data) {
+        setSaving(false)
+        void showSweetAlert('error', 'Application not saved', `Could not create this application: ${error?.message || 'No application ID returned.'}`)
+        return
+      }
+      applicationId = data.id
+    }
+
+    const { data: loanId, error: approvalError } = await supabase.rpc('approve_application_and_create_loan', {
+      p_application_id: applicationId,
+      p_monthly_rate: applicationData.custom_rate ?? (settings.monthly_rate ? parseFloat(settings.monthly_rate) : 0.05),
+    })
+    setSaving(false)
+    if (approvalError || !loanId) {
+      console.error('Error approving application:', approvalError)
+      void showSweetAlert('error', 'Application saved, approval failed', approvalError?.message || 'No loan was created. You can edit and save this application again.')
+      await fetchApplications()
+      return
+    }
+
+    await showSweetAlert('success', 'Application approved', 'The loan is ready for disbursement.')
+    router.push(`/loans/${loanId}`)
+    router.refresh()
   }
 
   const handleEdit = (application: Application) => {
+    setEditingApprovedApplication(application.status === 'approved')
     const borrower = borrowers.find((b) => b.id === application.borrower_id)
     setEditingApplicationId(application.id)
     setFormData({
@@ -259,11 +315,12 @@ export default function ApplicationsPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800 md:text-2xl">Applications</h1>
-          <p className="mt-1 text-sm text-slate-500">Review requests and track application decisions.</p>
+          <p className="mt-1 text-sm text-slate-500">Create and edit applications, then approve them straight to disbursement. Approved applications remain editable while their loan is pending disbursement.</p>
         </div>
         <button
           onClick={() => {
             setEditingApplicationId(null)
+            setEditingApprovedApplication(false)
             setFormData({ borrower_id: '', borrower_name: '', amount: '', borrowed_date: todayDateInput(), term_months: '', purpose: '', repayment_style: 'EQUAL_PRINCIPAL', custom_rate: '', rate_override_reason: '' })
             setBorrowerSearch('')
             setSchedulePreview([])
@@ -365,8 +422,8 @@ export default function ApplicationsPage() {
                   onChange={(e) => handleFormChange('repayment_style', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
-                  <option value="EQUAL_PRINCIPAL">Equal Principal</option>
-                  <option value="EQUAL_PAYMENT">Equal Payment (Amortized)</option>
+                  <option value="EQUAL_PRINCIPAL">Installment</option>
+                  <option value="LUMP_SUM">Lump Sum</option>
                 </select>
               </div>
 
@@ -475,15 +532,17 @@ export default function ApplicationsPage() {
             <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
               <button
                 type="submit"
+                disabled={saving}
                 className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
               >
-                {editingApplicationId ? 'Save Changes' : 'Create Application'}
+                {saving ? 'Saving…' : editingApprovedApplication ? 'Save Changes' : 'Save & Approve'}
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setShowForm(false)
                   setEditingApplicationId(null)
+                  setEditingApprovedApplication(false)
                   setSchedulePreview([])
                 }}
                 className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300"
@@ -511,6 +570,9 @@ export default function ApplicationsPage() {
                   </th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
+                  </th>
+                  <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Borrowed Date
                   </th>
                   <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">
                     Term
@@ -556,12 +618,15 @@ export default function ApplicationsPage() {
                         ₱{app.amount.toLocaleString()}
                       </div>
                     </td>
+                    <td className="px-4 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      {new Date(`${app.borrowed_date}T12:00:00`).toLocaleDateString()}
+                    </td>
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
                       <div className="text-sm text-gray-900">{app.term_months} months</div>
                     </td>
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                       <div className="text-sm text-gray-900">
-                        {app.repayment_style.replace('_', ' ')}
+                        {app.repayment_style === 'LUMP_SUM' ? 'Lump Sum' : 'Installment'}
                       </div>
                     </td>
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap">
@@ -596,6 +661,15 @@ export default function ApplicationsPage() {
                           </button>
                         </>
                       )}
+                  {app.status === 'approved' && pendingLoanIds[app.id] && (
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(app)}
+                      className="ml-2 md:ml-3 text-indigo-600 hover:text-indigo-900"
+                    >
+                      Edit
+                    </button>
+                  )}
                     </td>
                   </tr>
                 ))}

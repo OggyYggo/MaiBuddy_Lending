@@ -216,8 +216,9 @@ export default function SettingsPage() {
                           onChange={(e) => handleSettingChange(setting.key, e.target.value)}
                           className="w-full max-w-md px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                         >
-                          <option value="EQUAL_PRINCIPAL">Equal Principal</option>
-                          <option value="EQUAL_PAYMENT">Equal Payment (Amortized)</option>
+                          <option value="EQUAL_PRINCIPAL">Installment</option>
+                          <option value="EQUAL_PAYMENT">Equal Payment (legacy)</option>
+                          <option value="LUMP_SUM">Lump Sum</option>
                         </select>
                       ) : (
                         <input

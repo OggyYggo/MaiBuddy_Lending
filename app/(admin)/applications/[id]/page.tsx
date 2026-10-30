@@ -6,6 +6,7 @@ import { createClient } from '@/utils/supabase/client'
 import { generateSchedule } from '@/lib/loan/engine'
 import Decimal from 'decimal.js'
 import type { Database } from '@/types/supabase'
+import { showSweetAlert } from '@/lib/sweet-alert'
 
 type Application = Database['public']['Tables']['applications']['Row'] & {
   borrowers: Database['public']['Tables']['borrowers']['Row']
@@ -137,6 +138,31 @@ export default function ApplicationDetailPage() {
 
     const { data: { user } } = await supabase.auth.getUser()
 
+    if (decision === 'approved') {
+      let monthlyRate = (application as any).custom_rate
+      if (!monthlyRate) {
+        const { data: settings } = await supabase
+          .from('settings')
+          .select('value')
+          .eq('key', 'monthly_rate')
+          .single()
+        monthlyRate = settings?.value ? parseFloat(settings.value) : 0.05
+      }
+
+      const { data: loanId, error } = await supabase.rpc('approve_application_and_create_loan', {
+        p_application_id: application.id,
+        p_monthly_rate: monthlyRate,
+      })
+      if (error || !loanId) {
+        void showSweetAlert('error', 'Application not approved', error?.message || 'A loan could not be created.')
+        return
+      }
+      await showSweetAlert('success', 'Application approved', 'The loan is ready for disbursement.')
+      router.push(`/loans/${loanId}`)
+      router.refresh()
+      return
+    }
+
     const { error: updateError } = await supabase
       .from('applications')
       .update({
@@ -151,32 +177,6 @@ export default function ApplicationDetailPage() {
       console.error('Error updating application:', updateError)
       alert('Failed to update application')
       return
-    }
-
-    if (decision === 'approved') {
-      let monthlyRate = (application as any).custom_rate
-      if (!monthlyRate) {
-        const { data: settings } = await supabase
-          .from('settings')
-          .select('value')
-          .eq('key', 'monthly_rate')
-          .single()
-        monthlyRate = settings?.value ? parseFloat(settings.value) : 0.05
-      }
-
-      const { error: loanError } = await supabase.rpc('create_loan', {
-        p_application_id: params.id,
-        p_borrower_id: application.borrower_id,
-        p_principal: application.amount,
-        p_monthly_rate: monthlyRate,
-        p_term_months: application.term_months,
-        p_repayment_style: application.repayment_style,
-      })
-
-      if (loanError) {
-        console.error('Error creating loan:', loanError)
-        alert('Application approved but failed to create loan')
-      }
     }
 
     router.push('/applications')
@@ -280,7 +280,7 @@ export default function ApplicationDetailPage() {
             <p>
               <span className="text-sm text-gray-500">Repayment Style:</span>{' '}
               <span className="text-gray-900">
-                {application.repayment_style.replace('_', ' ')}
+                {application.repayment_style === 'LUMP_SUM' ? 'Lump Sum' : 'Installment'}
               </span>
             </p>
             <p>

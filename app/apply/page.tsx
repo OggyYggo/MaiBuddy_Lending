@@ -14,7 +14,7 @@ type ApplicationForm = {
   amount: string
   term_months: string
   purpose: string
-  repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT'
+  repayment_style: 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM'
   consent: boolean
   website: string
 }
@@ -161,8 +161,8 @@ export default function PublicApplicationPage() {
                 <label className={labelClass}>
                   Repayment style
                   <select className={inputClass} value={form.repayment_style} onChange={(event) => handleChange('repayment_style', event.target.value as ApplicationForm['repayment_style'])}>
-                    <option value="EQUAL_PRINCIPAL">Equal principal</option>
-                    <option value="EQUAL_PAYMENT">Equal monthly payment</option>
+                    <option value="EQUAL_PRINCIPAL">Installment</option>
+                    <option value="LUMP_SUM">Lump Sum</option>
                   </select>
                 </label>
                 <label className={`${labelClass} sm:col-span-2`}>
