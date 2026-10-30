@@ -18,6 +18,9 @@ export default function PaymentsPage() {
   const [editingPaymentId, setEditingPaymentId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [actingOnPaymentId, setActingOnPaymentId] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
   const supabase = createClient()
 
   const [formData, setFormData] = useState({
@@ -42,27 +45,37 @@ export default function PaymentsPage() {
     : null
 
   useEffect(() => {
+    setCurrentPage(1)
     fetchPayments()
     fetchLoans()
   }, [statusFilter])
 
+  useEffect(() => {
+    fetchPayments()
+  }, [currentPage])
+
   const fetchPayments = async () => {
     setLoading(true)
+    const from = (currentPage - 1) * itemsPerPage
+    const to = from + itemsPerPage - 1
+
     let query = supabase
       .from('payments')
-      .select('*, loans(borrowers(full_name))')
+      .select('*, loans(borrowers(full_name))', { count: 'exact' })
       .order('received_at', { ascending: false })
+      .range(from, to)
 
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter)
     }
 
-    const { data, error } = await query
+    const { data, error, count } = await query
 
     if (error) {
       console.error('Error fetching payments:', error)
     } else {
       setPayments(data || [])
+      setTotalCount(count || 0)
     }
     setLoading(false)
   }
@@ -156,6 +169,7 @@ export default function PaymentsPage() {
         void showSweetAlert('error', 'Payment cannot be edited', 'It may have been posted or voided by another admin. Refresh and try again.')
         setShowForm(false)
         setEditingPaymentId(null)
+        setCurrentPage(1)
         await fetchPayments()
         return
       }
@@ -178,6 +192,7 @@ export default function PaymentsPage() {
 
       setShowForm(false)
       setEditingPaymentId(null)
+      setCurrentPage(1)
       await fetchPayments()
       if (auditError) {
         console.error('Payment updated, but its audit entry could not be saved:', auditError)
@@ -216,6 +231,7 @@ export default function PaymentsPage() {
         reference: '',
         received_at: new Date().toISOString().split('T')[0],
       })
+      setCurrentPage(1)
       fetchPayments()
     }
   }
@@ -312,6 +328,7 @@ export default function PaymentsPage() {
       void showSweetAlert('error', 'Could not post payment', errorMessage)
     } else {
       void showSweetToast('success', `${payment.payment_type} payment posted to the loan ledger`)
+      setCurrentPage(1)
       await fetchPayments()
       await fetchLoans()
     }
@@ -491,6 +508,7 @@ export default function PaymentsPage() {
       {loading ? (
         <div className="text-center py-8">Loading...</div>
       ) : (
+        <>
         <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
             <table className="w-full min-w-[900px] divide-y divide-slate-100">
@@ -606,6 +624,36 @@ export default function PaymentsPage() {
             <div className="text-center py-8 text-gray-500">No payments found</div>
           )}
         </div>
+
+        {totalCount > itemsPerPage && (
+          <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-slate-100 sm:px-6">
+            <div className="flex items-center text-sm text-gray-700">
+              <span>
+                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalCount)} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} results
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-1.5 text-sm font-medium text-gray-700">
+                Page {currentPage} of {Math.ceil(totalCount / itemsPerPage)}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalCount / itemsPerPage)))}
+                disabled={currentPage >= Math.ceil(totalCount / itemsPerPage)}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   )

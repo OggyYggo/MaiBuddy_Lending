@@ -69,10 +69,13 @@ BEGIN
         THEN 'paid'
         ELSE 'partial'
       END
-    WHERE loan_id = p_loan_id
-    AND status != 'paid'
-    ORDER BY due_date ASC
-    LIMIT 1;
+    WHERE id = (
+      SELECT id
+      FROM schedule_items
+      WHERE loan_id = p_loan_id AND status != 'paid'
+      ORDER BY due_date ASC
+      LIMIT 1
+    );
   END IF;
 
   -- Update loan status if fully paid

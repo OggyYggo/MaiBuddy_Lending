@@ -21,24 +21,36 @@ export default function LoansPage() {
     term_months: '',
     repayment_style: 'EQUAL_PRINCIPAL' as 'EQUAL_PRINCIPAL' | 'EQUAL_PAYMENT' | 'LUMP_SUM',
   })
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
   const supabase = createClient()
 
   useEffect(() => {
+    setCurrentPage(1)
     fetchLoans()
   }, [statusFilter])
 
+  useEffect(() => {
+    fetchLoans()
+  }, [currentPage])
+
   const fetchLoans = async () => {
     setLoading(true)
+    const from = (currentPage - 1) * itemsPerPage
+    const to = from + itemsPerPage - 1
+
     let query = supabase
       .from('loans')
-      .select('*, borrowers(full_name)')
+      .select('*, borrowers(full_name)', { count: 'exact' })
       .order('created_at', { ascending: false })
+      .range(from, to)
 
     if (statusFilter !== 'all') {
       query = query.eq('status', statusFilter)
     }
 
-    const { data, error } = await query
+    const { data, error, count } = await query
 
     if (error) {
       console.error('Error fetching loans:', error)
@@ -74,6 +86,7 @@ export default function LoansPage() {
           Number(loan.principal) - (principalPaidByLoan.get(loan.id) || 0),
         ),
       })))
+      setTotalCount(count || 0)
     }
     setLoading(false)
   }
@@ -336,6 +349,7 @@ export default function LoansPage() {
       {loading ? (
         <div className="text-center py-8">Loading...</div>
       ) : (
+        <>
         <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
             <table className="w-full min-w-[900px] divide-y divide-slate-100">
@@ -432,6 +446,36 @@ export default function LoansPage() {
             <div className="text-center py-8 text-gray-500">No loans found</div>
           )}
         </div>
+
+        {totalCount > itemsPerPage && (
+          <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-slate-100 sm:px-6">
+            <div className="flex items-center text-sm text-gray-700">
+              <span>
+                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalCount)} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} results
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-1.5 text-sm font-medium text-gray-700">
+                Page {currentPage} of {Math.ceil(totalCount / itemsPerPage)}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalCount / itemsPerPage)))}
+                disabled={currentPage >= Math.ceil(totalCount / itemsPerPage)}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   )

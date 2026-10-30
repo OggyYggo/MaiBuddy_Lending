@@ -33,6 +33,9 @@ export default function ApplicationsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<Record<string, string>>({})
+  const [currentPage, setCurrentPage] = useState(1)
+  const [itemsPerPage] = useState(10)
+  const [totalCount, setTotalCount] = useState(0)
   const supabase = createClient()
   const router = useRouter()
 
@@ -58,17 +61,26 @@ export default function ApplicationsPage() {
     fetchSettings()
   }, [])
 
+  useEffect(() => {
+    fetchApplications()
+  }, [currentPage])
+
   const fetchApplications = async () => {
     setLoading(true)
-    const { data, error } = await supabase
+    const from = (currentPage - 1) * itemsPerPage
+    const to = from + itemsPerPage - 1
+
+    const { data, error, count } = await supabase
       .from('applications')
-      .select('*, borrowers(full_name)')
+      .select('*, borrowers(full_name)', { count: 'exact' })
       .order('created_at', { ascending: false })
+      .range(from, to)
 
     if (error) {
       console.error('Error fetching applications:', error)
     } else {
       setApplications(data || [])
+      setTotalCount(count || 0)
       const { data: loans, error: loansError } = await supabase
         .from('loans')
         .select('id, application_id, status, disbursed_at')
@@ -232,6 +244,7 @@ export default function ApplicationsPage() {
       setShowForm(false)
       setEditingApplicationId(null)
       setEditingRecordOnly(false)
+      setCurrentPage(1)
       await fetchApplications()
       return
     }
@@ -292,11 +305,13 @@ export default function ApplicationsPage() {
         ? 'The approval database function is not installed yet. Apply the Supabase migrations 20261030120000_application_approval_and_lump_sum.sql and 20261030130000_edit_approved_pending_applications.sql, then edit this saved draft and save it again.'
         : approvalError?.message || 'No loan was created. This application remains saved as a draft and can be retried.'
       void showSweetAlert('error', 'Application saved, approval failed', errorMessage)
+      setCurrentPage(1)
       await fetchApplications()
       return
     }
 
     await showSweetAlert('success', 'Application approved', 'The loan is ready for disbursement.')
+    setCurrentPage(1)
     router.push(`/loans/${loanId}`)
     router.refresh()
   }
@@ -360,6 +375,7 @@ export default function ApplicationsPage() {
       return
     }
     void showSweetToast('success', 'Application deleted')
+    setCurrentPage(1)
     fetchApplications()
   }
 
@@ -626,6 +642,7 @@ export default function ApplicationsPage() {
       {loading ? (
         <div className="text-center py-8">Loading...</div>
       ) : (
+        <>
         <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
             <table className="w-full min-w-[900px] divide-y divide-slate-100">
@@ -739,6 +756,36 @@ export default function ApplicationsPage() {
             <div className="text-center py-8 text-gray-500">No applications found</div>
           )}
         </div>
+
+        {totalCount > itemsPerPage && (
+          <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-slate-100 sm:px-6">
+            <div className="flex items-center text-sm text-gray-700">
+              <span>
+                Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalCount)} to {Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount} results
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Previous
+              </button>
+              <span className="px-3 py-1.5 text-sm font-medium text-gray-700">
+                Page {currentPage} of {Math.ceil(totalCount / itemsPerPage)}
+              </span>
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(totalCount / itemsPerPage)))}
+                disabled={currentPage >= Math.ceil(totalCount / itemsPerPage)}
+                className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+        </>
       )}
     </div>
   )
