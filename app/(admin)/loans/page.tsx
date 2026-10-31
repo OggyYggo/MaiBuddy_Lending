@@ -24,6 +24,7 @@ export default function LoansPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const [totalCount, setTotalCount] = useState(0)
+  const [totalOutstandingBalance, setTotalOutstandingBalance] = useState(0)
   const supabase = createClient()
 
   useEffect(() => {
@@ -37,6 +38,17 @@ export default function LoansPage() {
 
   const fetchLoans = async () => {
     setLoading(true)
+    const { data: outstandingData, error: outstandingError } = await supabase
+      .from('v_outstanding_principal')
+      .select('total')
+      .single()
+
+    if (outstandingError) {
+      console.error('Error fetching total outstanding principal:', outstandingError)
+    } else {
+      setTotalOutstandingBalance(Number(outstandingData?.total || 0))
+    }
+
     const from = (currentPage - 1) * itemsPerPage
     const to = from + itemsPerPage - 1
 
@@ -133,10 +145,6 @@ export default function LoansPage() {
   }
 
   const totalLoanAmount = loans.reduce((total, loan) => total + Number(loan.principal || 0), 0)
-  const totalOutstandingBalance = loans.reduce(
-    (total, loan) => total + Number(loan.outstandingBalance ?? loan.principal ?? 0),
-    0,
-  )
   const activeLoans = loans.filter(loan => loan.status === 'active').length
   const overdueLoans = loans.filter(loan => loan.status === 'overdue').length
   const formatCurrency = (amount: number) => `\u20B1${amount.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
