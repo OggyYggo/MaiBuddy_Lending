@@ -11,6 +11,7 @@ type Payment = Database['public']['Tables']['payments']['Row'] & {
   }
 }
 type ScheduleItem = Database['public']['Tables']['schedule_items']['Row']
+type PaymentType = 'principal' | 'interest' | 'penalty' | 'installment'
 
 function remainingScheduleAmounts(item: ScheduleItem) {
   const principal = Math.max(Number(item.principal_due) - Number(item.principal_paid), 0)
@@ -24,6 +25,14 @@ function formatCurrency(amount: number) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`
+}
+
+function formatPaymentType(paymentType: string | null | undefined) {
+  if (paymentType === 'installment') return 'Installment (principal + interest)'
+  if (paymentType === 'principal') return 'Principal only'
+  if (paymentType === 'interest') return 'Interest only'
+  if (paymentType === 'penalty') return 'Penalty'
+  return 'Principal only'
 }
 
 export default function PaymentsPage() {
@@ -41,7 +50,7 @@ export default function PaymentsPage() {
   const [formData, setFormData] = useState({
     loan_id: '',
     amount: '',
-    payment_type: 'principal' as 'principal' | 'interest' | 'penalty',
+    payment_type: 'principal' as PaymentType,
     method: 'cash' as 'cash' | 'bank' | 'e_wallet' | 'check',
     reference: '',
     received_at: new Date().toISOString().split('T')[0],
@@ -60,14 +69,26 @@ export default function PaymentsPage() {
     showForm && formData.loan_id && scheduleState.loanId !== formData.loan_id,
   )
   const scheduleError = scheduleState.loanId === formData.loan_id ? scheduleState.error : null
-  const nextScheduleItem = loanSchedule.find((item) => remainingScheduleAmounts(item).total > 0)
+  const nextScheduleItem = loanSchedule
+    .filter((item) => item.status !== 'paid' && remainingScheduleAmounts(item).total > 0)
+    .sort((left, right) => left.due_date.localeCompare(right.due_date) || left.installment_no - right.installment_no)[0]
+  const nextScheduleAmounts = nextScheduleItem ? remainingScheduleAmounts(nextScheduleItem) : null
   const enteredAmount = Number(formData.amount)
+  const estimatedInstallmentInterest = formData.payment_type === 'installment' && nextScheduleAmounts
+    ? Math.min(enteredAmount, nextScheduleAmounts.interest)
+    : 0
+  const estimatedInstallmentPrincipal = formData.payment_type === 'installment' && nextScheduleAmounts
+    ? Math.min(Math.max(enteredAmount - estimatedInstallmentInterest, 0), nextScheduleAmounts.principal)
+    : 0
+  const projectedPrincipalReduction = formData.payment_type === 'principal'
+    ? enteredAmount
+    : estimatedInstallmentPrincipal
   const projectedBalance = selectedLoan?.outstandingBalance != null
     && Number.isFinite(enteredAmount)
     && enteredAmount > 0
     ? Math.max(
         0,
-        selectedLoan.outstandingBalance - (formData.payment_type === 'principal' ? enteredAmount : 0),
+        selectedLoan.outstandingBalance - projectedPrincipalReduction,
       )
     : null
 
@@ -151,24 +172,25 @@ export default function PaymentsPage() {
     } else {
       const activeLoans = data || []
       const loanIds = activeLoans.map((loan) => loan.id)
-      const latestBalances = new Map<string, number>()
+      const postedPrincipal = new Map<string, number>()
       let balanceQueryFailed = false
 
       if (loanIds.length > 0) {
         const { data: ledgerEntries, error: ledgerError } = await supabase
           .from('ledger_entries')
-          .select('id, loan_id, balance_after, created_at')
+          .select('loan_id, type, amount')
           .in('loan_id', loanIds)
-          .order('created_at', { ascending: false })
-          .order('id', { ascending: false })
 
         if (ledgerError) {
           console.error('Error fetching outstanding loan balances:', ledgerError)
           balanceQueryFailed = true
         } else {
           for (const entry of ledgerEntries || []) {
-            if (!latestBalances.has(entry.loan_id)) {
-              latestBalances.set(entry.loan_id, Number(entry.balance_after))
+            if (entry.type === 'principal') {
+              postedPrincipal.set(
+                entry.loan_id,
+                (postedPrincipal.get(entry.loan_id) || 0) + Number(entry.amount),
+              )
             }
           }
         }
@@ -178,7 +200,7 @@ export default function PaymentsPage() {
         ...loan,
         outstandingBalance: balanceQueryFailed
           ? null
-          : latestBalances.get(loan.id) ?? Number(loan.principal),
+          : Math.max(Number(loan.principal) - (postedPrincipal.get(loan.id) || 0), 0),
       })))
     }
   }
@@ -189,6 +211,26 @@ export default function PaymentsPage() {
     if (!Number.isFinite(amount) || amount <= 0) {
       void showSweetAlert('error', 'Invalid payment amount', 'Enter a valid payment amount greater than zero.')
       return
+    }
+    if (formData.payment_type === 'installment') {
+      if (scheduleLoading || scheduleError) {
+        void showSweetAlert('error', 'Schedule unavailable', 'Load the selected loan schedule before recording an installment payment.')
+        return
+      }
+      const installment = nextScheduleItem
+      if (!installment) {
+        void showSweetAlert('error', 'No unpaid installment', 'This loan has no remaining scheduled installment to apply this payment to.')
+        return
+      }
+      const remaining = remainingScheduleAmounts(installment)
+      if (amount > remaining.total + 0.000001) {
+        void showSweetAlert(
+          'warning',
+          'Payment exceeds installment balance',
+          `The next installment has ${formatCurrency(remaining.total)} remaining. Record any additional principal as a separate principal payment.`,
+        )
+        return
+      }
     }
 
     const receivedAt = new Date(formData.received_at).toISOString()
@@ -386,7 +428,7 @@ export default function PaymentsPage() {
       console.error(`Error posting pending payment: ${errorMessage}`)
       void showSweetAlert('error', 'Could not post payment', errorMessage)
     } else {
-      void showSweetToast('success', `${payment.payment_type} payment posted to the loan ledger`)
+      void showSweetToast('success', `${formatPaymentType(payment.payment_type)} payment posted to the loan ledger`)
       setCurrentPage(1)
       await fetchPayments()
       await fetchLoans()
@@ -585,13 +627,27 @@ export default function PaymentsPage() {
                 <select
                   required
                   value={formData.payment_type}
-                  onChange={(e) => setFormData({ ...formData, payment_type: e.target.value as any })}
+                  onChange={(e) => setFormData({ ...formData, payment_type: e.target.value as PaymentType })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="principal">Principal</option>
                   <option value="interest">Interest</option>
                   <option value="penalty">Penalty</option>
+                  <option value="installment">Installment (Principal + Interest)</option>
                 </select>
+                {formData.payment_type === 'installment' && (
+                  <div className="mt-2 rounded-md bg-indigo-50 p-3 text-xs text-indigo-900">
+                    <p>Applies to the next unpaid installment, interest first and then principal. Any extra principal must be recorded separately.</p>
+                    {nextScheduleAmounts && enteredAmount > 0 && (
+                      <p className="mt-1 font-medium">
+                        Estimated allocation: interest {formatCurrency(estimatedInstallmentInterest)} · principal {formatCurrency(estimatedInstallmentPrincipal)}
+                      </p>
+                    )}
+                    {nextScheduleAmounts && (
+                      <p className="mt-1">Maximum for this installment: {formatCurrency(nextScheduleAmounts.total)}</p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -700,14 +756,19 @@ export default function PaymentsPage() {
                       </div>
                     </td>
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden sm:table-cell">
-                      <div className="text-sm text-gray-900 capitalize">
-                        {(payment as any).payment_type || 'principal'}
+                      <div className="text-sm text-gray-900">
+                        {formatPaymentType(payment.payment_type)}
                       </div>
                     </td>
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">
                         ₱{payment.amount.toLocaleString()}
                       </div>
+                      {payment.payment_type === 'installment' && (
+                        <div className="mt-1 text-xs text-slate-500">
+                          Interest {formatCurrency(payment.interest_allocated)} · Principal {formatCurrency(payment.principal_allocated)}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                       <div className="text-sm text-gray-900 capitalize">

@@ -350,7 +350,9 @@ export interface Database {
           id: string
           loan_id: string
           amount: number
-          payment_type: 'principal' | 'interest' | 'penalty'
+          payment_type: 'principal' | 'interest' | 'penalty' | 'installment'
+          principal_allocated: number
+          interest_allocated: number
           method: 'cash' | 'bank' | 'e_wallet' | 'check'
           reference: string | null
           proof_file: string | null
@@ -363,7 +365,9 @@ export interface Database {
           id?: string
           loan_id: string
           amount: number
-          payment_type?: 'principal' | 'interest' | 'penalty'
+          payment_type?: 'principal' | 'interest' | 'penalty' | 'installment'
+          principal_allocated?: number
+          interest_allocated?: number
           method: 'cash' | 'bank' | 'e_wallet' | 'check'
           reference?: string | null
           proof_file?: string | null
@@ -376,7 +380,9 @@ export interface Database {
           id?: string
           loan_id?: string
           amount?: number
-          payment_type?: 'principal' | 'interest' | 'penalty'
+          payment_type?: 'principal' | 'interest' | 'penalty' | 'installment'
+          principal_allocated?: number
+          interest_allocated?: number
           method?: 'cash' | 'bank' | 'e_wallet' | 'check'
           reference?: string | null
           proof_file?: string | null
