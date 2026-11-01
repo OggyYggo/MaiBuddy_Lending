@@ -10,6 +10,21 @@ type Payment = Database['public']['Tables']['payments']['Row'] & {
     borrowers: Database['public']['Tables']['borrowers']['Row']
   }
 }
+type ScheduleItem = Database['public']['Tables']['schedule_items']['Row']
+
+function remainingScheduleAmounts(item: ScheduleItem) {
+  const principal = Math.max(Number(item.principal_due) - Number(item.principal_paid), 0)
+  const interest = Math.max(Number(item.interest_due) - Number(item.interest_paid), 0)
+
+  return { principal, interest, total: principal + interest }
+}
+
+function formatCurrency(amount: number) {
+  return `₱${amount.toLocaleString('en-PH', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
 
 export default function PaymentsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
@@ -33,7 +48,19 @@ export default function PaymentsPage() {
   })
 
   const [loans, setLoans] = useState<any[]>([])
+  const [scheduleState, setScheduleState] = useState<{
+    loanId: string
+    items: ScheduleItem[]
+    error: string | null
+  }>({ loanId: '', items: [], error: null })
+  const [showFullSchedule, setShowFullSchedule] = useState(false)
   const selectedLoan = loans.find((loan) => loan.id === formData.loan_id)
+  const loanSchedule = scheduleState.loanId === formData.loan_id ? scheduleState.items : []
+  const scheduleLoading = Boolean(
+    showForm && formData.loan_id && scheduleState.loanId !== formData.loan_id,
+  )
+  const scheduleError = scheduleState.loanId === formData.loan_id ? scheduleState.error : null
+  const nextScheduleItem = loanSchedule.find((item) => remainingScheduleAmounts(item).total > 0)
   const enteredAmount = Number(formData.amount)
   const projectedBalance = selectedLoan?.outstandingBalance != null
     && Number.isFinite(enteredAmount)
@@ -53,6 +80,38 @@ export default function PaymentsPage() {
   useEffect(() => {
     fetchPayments()
   }, [currentPage])
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!showForm || !formData.loan_id) return
+
+    const loanId = formData.loan_id
+
+    const fetchLoanSchedule = async () => {
+      const scheduleClient = createClient()
+      const { data, error } = await scheduleClient
+        .from('schedule_items')
+        .select('*')
+        .eq('loan_id', loanId)
+        .order('installment_no', { ascending: true })
+
+      if (cancelled) return
+
+      if (error) {
+        console.error('Error fetching selected loan schedule:', error)
+        setScheduleState({ loanId, items: [], error: 'Could not load this loan schedule.' })
+      } else {
+        setScheduleState({ loanId, items: data || [], error: null })
+      }
+    }
+
+    void fetchLoanSchedule()
+
+    return () => {
+      cancelled = true
+    }
+  }, [formData.loan_id, showForm])
 
   const fetchPayments = async () => {
     setLoading(true)
@@ -376,7 +435,10 @@ export default function PaymentsPage() {
                 <select
                   required
                   value={formData.loan_id}
-                  onChange={(e) => setFormData({ ...formData, loan_id: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, loan_id: e.target.value })
+                    setShowFullSchedule(false)
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 >
                   <option value="">Select a loan</option>
@@ -409,6 +471,95 @@ export default function PaymentsPage() {
                     <p className="mt-2 text-xs text-slate-600">
                       Estimate is based on the selected payment type. The posted ledger determines the final balance.
                     </p>
+                  </div>
+                )}
+                {selectedLoan && (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-900">Payment schedule</h3>
+                        <p className="text-xs text-slate-500">Amounts remaining after payments already posted</p>
+                      </div>
+                      {loanSchedule.length > 0 && !scheduleLoading && (
+                        <button
+                          type="button"
+                          aria-expanded={showFullSchedule}
+                          onClick={() => setShowFullSchedule((isExpanded) => !isExpanded)}
+                          className="self-start text-sm font-medium text-indigo-600 hover:text-indigo-800 sm:self-auto"
+                        >
+                          {showFullSchedule ? 'Hide full schedule' : `View full schedule (${loanSchedule.length})`}
+                        </button>
+                      )}
+                    </div>
+
+                    {scheduleLoading ? (
+                      <p className="mt-3 text-sm text-slate-500">Loading schedule...</p>
+                    ) : scheduleError ? (
+                      <p className="mt-3 text-sm text-rose-600">{scheduleError}</p>
+                    ) : nextScheduleItem ? (
+                      <div className="mt-3 rounded-md bg-slate-50 p-3">
+                        <p className="text-xs font-medium text-slate-600">
+                          Next unpaid installment #{nextScheduleItem.installment_no} · Due{' '}
+                          {new Date(`${nextScheduleItem.due_date}T00:00:00`).toLocaleDateString()}
+                        </p>
+                        <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                          <div>
+                            <p className="text-xs text-slate-500">Principal remaining</p>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {formatCurrency(remainingScheduleAmounts(nextScheduleItem).principal)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Interest remaining</p>
+                            <p className="text-sm font-semibold text-slate-900">
+                              {formatCurrency(remainingScheduleAmounts(nextScheduleItem).interest)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-500">Total installment due</p>
+                            <p className="text-sm font-semibold text-indigo-700">
+                              {formatCurrency(remainingScheduleAmounts(nextScheduleItem).total)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-sm text-slate-500">No remaining installments found for this loan.</p>
+                    )}
+
+                    {showFullSchedule && !scheduleLoading && loanSchedule.length > 0 && (
+                      <div className="mt-3 overflow-x-auto rounded-md border border-slate-200">
+                        <table className="min-w-full divide-y divide-slate-200 text-sm">
+                          <thead className="bg-slate-50 text-left text-xs uppercase text-slate-500">
+                            <tr>
+                              <th className="px-3 py-2 font-medium">Installment</th>
+                              <th className="px-3 py-2 font-medium">Due date</th>
+                              <th className="px-3 py-2 text-right font-medium">Principal remaining</th>
+                              <th className="px-3 py-2 text-right font-medium">Interest remaining</th>
+                              <th className="px-3 py-2 text-right font-medium">Total due</th>
+                              <th className="px-3 py-2 font-medium">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 bg-white">
+                            {loanSchedule.map((item) => {
+                              const amounts = remainingScheduleAmounts(item)
+                              return (
+                                <tr key={item.id}>
+                                  <td className="whitespace-nowrap px-3 py-2">#{item.installment_no}</td>
+                                  <td className="whitespace-nowrap px-3 py-2">
+                                    {new Date(`${item.due_date}T00:00:00`).toLocaleDateString()}
+                                  </td>
+                                  <td className="whitespace-nowrap px-3 py-2 text-right">{formatCurrency(amounts.principal)}</td>
+                                  <td className="whitespace-nowrap px-3 py-2 text-right">{formatCurrency(amounts.interest)}</td>
+                                  <td className="whitespace-nowrap px-3 py-2 text-right font-medium">{formatCurrency(amounts.total)}</td>
+                                  <td className="whitespace-nowrap px-3 py-2 capitalize">{item.status}</td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

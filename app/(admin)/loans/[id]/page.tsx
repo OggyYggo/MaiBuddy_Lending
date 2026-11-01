@@ -376,16 +376,13 @@ export default function LoanDetailPage() {
                       Due Date
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Principal Due
+                      Principal Due (Remaining)
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Interest Due
+                      Interest Due (Remaining)
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Principal Paid
-                    </th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
-                      Interest Paid
+                      Total Monthly Due (Remaining)
                     </th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                       Status
@@ -400,16 +397,18 @@ export default function LoanDetailPage() {
                         {new Date(item.due_date).toLocaleDateString()}
                       </td>
                       <td className="px-4 py-2 text-sm">
-                        ₱{item.principal_due.toLocaleString()}
+                        {'\u20B1'}{Math.max(item.principal_due - item.principal_paid, 0).toLocaleString()}
                       </td>
                       <td className="px-4 py-2 text-sm">
-                        ₱{item.interest_due.toLocaleString()}
+                        {'\u20B1'}{Math.max(item.interest_due - item.interest_paid, 0).toLocaleString()}
                       </td>
-                      <td className="px-4 py-2 text-sm">
-                        ₱{item.principal_paid.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-2 text-sm">
-                        ₱{item.interest_paid.toLocaleString()}
+                      <td className="px-4 py-2 text-sm font-medium">
+                        {'\u20B1'}{
+                          (
+                            Math.max(item.principal_due - item.principal_paid, 0) +
+                            Math.max(item.interest_due - item.interest_paid, 0)
+                          ).toLocaleString()
+                        }
                       </td>
                       <td className="px-4 py-2 text-sm">
                         <span
