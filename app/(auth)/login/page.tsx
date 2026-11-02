@@ -17,6 +17,8 @@ export default function LoginPage() {
     if (error === 'account_not_active') {
       setError('This account is inactive and has been signed out. Ask an administrator to reactivate it before signing in again.')
       createClient().auth.signOut({ scope: 'local' })
+    } else if (error === 'session_expired') {
+      setError('You were signed out after 15 minutes of inactivity. Please sign in again.')
     }
   }, [])
 
