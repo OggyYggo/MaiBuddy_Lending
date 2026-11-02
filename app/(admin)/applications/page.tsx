@@ -31,11 +31,13 @@ export default function ApplicationsPage() {
   const [editingApprovedApplication, setEditingApprovedApplication] = useState(false)
   const [editingRecordOnly, setEditingRecordOnly] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [settings, setSettings] = useState<Record<string, string>>({})
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
   const [totalCount, setTotalCount] = useState(0)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
@@ -59,6 +61,11 @@ export default function ApplicationsPage() {
     fetchApplications()
     fetchBorrowers()
     fetchSettings()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data: profile } = await supabase.from('profiles').select('role, status').eq('id', user.id).single()
+      setIsSuperAdmin(profile?.role === 'super_admin' && profile.status === 'active')
+    })
   }, [])
 
   useEffect(() => {
@@ -67,17 +74,31 @@ export default function ApplicationsPage() {
 
   const fetchApplications = async () => {
     setLoading(true)
+    setFetchError(null)
     const from = (currentPage - 1) * itemsPerPage
     const to = from + itemsPerPage - 1
 
     const { data, error, count } = await supabase
       .from('applications')
-      .select('*, borrowers(full_name)', { count: 'exact' })
+      .select('*, borrowers!applications_borrower_id_fkey(full_name)', { count: 'exact' })
+      .is('archived_at', null)
       .order('created_at', { ascending: false })
       .range(from, to)
 
     if (error) {
-      console.error('Error fetching applications:', error)
+      const details = [
+        error.message,
+        error.details,
+        error.hint,
+        error.code ? `Code: ${error.code}` : null,
+      ].filter(Boolean).join(' — ')
+      console.error('Error fetching applications:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      })
+      setFetchError(details || 'Could not load applications. Check the Supabase request in the browser Network tab for the response details.')
     } else {
       setApplications(data || [])
       setTotalCount(count || 0)
@@ -103,6 +124,7 @@ export default function ApplicationsPage() {
     const { data, error } = await supabase
       .from('borrowers')
       .select('*')
+      .is('archived_at', null)
       .order('full_name', { ascending: true })
 
     if (error) {
@@ -348,33 +370,25 @@ export default function ApplicationsPage() {
     setShowForm(true)
   }
 
-  const handleDelete = async (application: Application) => {
+  const handleArchive = async (application: Application) => {
     const confirmation = await Swal.fire({
       icon: 'warning',
-      title: 'Delete application?',
-      text: `This ${application.status.replace('_', ' ')} application will be deleted.`,
+      title: 'Archive application?',
+      text: `This ${application.status.replace('_', ' ')} application will be hidden from regular work lists. A super admin can restore it from Archive History.`,
       showCancelButton: true,
-      confirmButtonText: 'Delete application',
+      confirmButtonText: 'Archive application',
       cancelButtonText: 'Keep application',
-      confirmButtonColor: '#dc2626',
+      confirmButtonColor: '#4f46e5',
     })
     if (!confirmation.isConfirmed) return
 
-    const { data, error } = await supabase
-      .from('applications')
-      .delete()
-      .eq('id', application.id)
-      .select('id')
+    const { error } = await supabase.rpc('archive_application_record', { p_application_id: application.id })
     if (error) {
-      console.error('Error deleting application:', error)
-      void showSweetAlert('error', 'Could not delete application', error.message)
+      console.error('Error archiving application:', error)
+      void showSweetAlert('error', 'Could not archive application', error.message)
       return
     }
-    if (!data?.length) {
-      void showSweetAlert('warning', 'Application was not deleted', 'Apply the admin record-management SQL migration in Supabase to enable deletes.')
-      return
-    }
-    void showSweetToast('success', 'Application deleted')
+    void showSweetToast('success', 'Application archived')
     setCurrentPage(1)
     fetchApplications()
   }
@@ -643,6 +657,13 @@ export default function ApplicationsPage() {
         <div className="text-center py-8">Loading...</div>
       ) : (
         <>
+        {fetchError && (
+          <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <p>Could not load applications: {fetchError}</p>
+            <button type="button" onClick={fetchApplications} className="mt-2 font-semibold underline">Retry</button>
+          </div>
+        )}
+
         <div className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="overflow-x-auto -mx-4 md:mx-0 px-4 md:px-0">
             <table className="w-full min-w-[900px] divide-y divide-slate-100">
@@ -736,13 +757,13 @@ export default function ApplicationsPage() {
                       >
                         Edit
                       </button>
-                      {(app.status === 'draft' || app.status === 'in_review') && (
+                      {isSuperAdmin && (app.status === 'draft' || app.status === 'in_review') && (
                         <button
                           type="button"
-                          onClick={() => handleDelete(app)}
-                          className="ml-2 md:ml-3 text-red-600 hover:text-red-800"
+                          onClick={() => handleArchive(app)}
+                          className="ml-2 md:ml-3 text-indigo-600 hover:text-indigo-800"
                         >
-                          Delete
+                          Archive
                         </button>
                       )}
                     </td>

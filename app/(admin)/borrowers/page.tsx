@@ -13,6 +13,7 @@ export default function BorrowersPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingBorrowerId, setEditingBorrowerId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
   const [fetchError, setFetchError] = useState<string | null>(null)
   const supabase = createClient()
 
@@ -30,6 +31,11 @@ export default function BorrowersPage() {
 
   useEffect(() => {
     fetchBorrowers()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data: profile } = await supabase.from('profiles').select('role, status').eq('id', user.id).single()
+      setIsSuperAdmin(profile?.role === 'super_admin' && profile.status === 'active')
+    })
   }, [])
 
   const fetchBorrowers = async () => {
@@ -39,6 +45,7 @@ export default function BorrowersPage() {
       const { data, error } = await supabase
         .from('borrowers')
         .select('*')
+        .is('archived_at', null)
         .order('created_at', { ascending: false })
 
       if (error) {
@@ -123,66 +130,26 @@ export default function BorrowersPage() {
   }
 
   const handleDelete = async (borrower: Borrower) => {
-    const [applicationsResult, loansResult] = await Promise.all([
-      supabase
-        .from('applications')
-        .select('id', { count: 'exact', head: true })
-        .eq('borrower_id', borrower.id),
-      supabase
-        .from('loans')
-        .select('id', { count: 'exact', head: true })
-        .eq('borrower_id', borrower.id),
-    ])
-
-    if (applicationsResult.error || loansResult.error) {
-      const error = applicationsResult.error || loansResult.error
-      console.error('Error checking borrower references before deletion:', error)
-      void showSweetAlert('error', 'Could not check borrower records', `Could not verify whether ${borrower.full_name} has linked applications or loans. No data was deleted.`)
-      return
-    }
-
-    const applicationCount = applicationsResult.count || 0
-    const loanCount = loansResult.count || 0
-    if (applicationCount > 0 || loanCount > 0) {
-      void showSweetAlert(
-        'warning',
-        'Borrower cannot be deleted',
-        `Cannot delete ${borrower.full_name}: this borrower is linked to ${applicationCount} application${applicationCount === 1 ? '' : 's'} and ${loanCount} loan${loanCount === 1 ? '' : 's'}. Keep the borrower record to preserve financial history.`,
-      )
-      return
-    }
-
     const confirmation = await Swal.fire({
       icon: 'warning',
-      title: 'Delete borrower?',
-      text: `Delete ${borrower.full_name}? This cannot be undone.`,
+      title: 'Archive borrower records?',
+      html: `<strong>${borrower.full_name}</strong> and their applications will be hidden from regular work lists. Loans and payment history will be preserved. A super admin can restore the archived records from Archive History.`,
       showCancelButton: true,
-      confirmButtonText: 'Delete borrower',
-      cancelButtonText: 'Keep borrower',
-      confirmButtonColor: '#dc2626',
+      confirmButtonText: 'Archive records',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#4f46e5',
     })
     if (!confirmation.isConfirmed) return
 
-    const { data, error } = await supabase
-      .from('borrowers')
-      .delete()
-      .eq('id', borrower.id)
-      .select('id')
+    const { error } = await supabase.rpc('archive_borrower_records', { p_borrower_id: borrower.id })
     if (error) {
-      console.error('Error deleting borrower:', error)
-      if (error.code === '23503') {
-        void showSweetAlert('warning', 'Borrower cannot be deleted', 'This borrower is linked to an application or loan. Keep the record to preserve financial history.')
-        return
-      }
-      void showSweetAlert('error', 'Could not delete borrower', error.message)
+      console.error('Error archiving borrower records:', error)
+      void showSweetAlert('error', 'Could not archive records', error.message)
       return
     }
-    if (!data?.length) {
-      void showSweetAlert('warning', 'Borrower was not deleted', 'Apply the admin record-management SQL migration in Supabase to enable deletes.')
-      return
-    }
+
     await fetchBorrowers()
-    void showSweetToast('success', 'Borrower deleted successfully')
+    void showSweetToast('success', 'Borrower records archived')
   }
 
   const filteredBorrowers = borrowers.filter(
@@ -426,13 +393,15 @@ export default function BorrowersPage() {
                       >
                         Edit
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(borrower)}
-                        className="ml-2 md:ml-3 text-red-600 hover:text-red-800"
-                      >
-                        Delete
-                      </button>
+                      {isSuperAdmin && (
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(borrower)}
+                          className="ml-2 md:ml-3 text-indigo-600 hover:text-indigo-800"
+                        >
+                          Archive
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}

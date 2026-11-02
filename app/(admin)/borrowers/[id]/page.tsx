@@ -25,6 +25,7 @@ export default function BorrowerDetailPage() {
       .from('borrowers')
       .select('*')
       .eq('id', params.id)
+      .is('archived_at', null)
       .single()
 
     if (error) {

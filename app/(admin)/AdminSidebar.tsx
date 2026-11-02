@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   Activity,
+  Archive,
   Banknote,
   Calculator,
   ClipboardList,
@@ -33,9 +34,15 @@ const navigation = [
 export default function AdminSidebar({ profile }: { profile: any }) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
-  const items = profile.role === 'admin' || profile.role === 'super_admin'
-    ? [...navigation, { label: 'Settings', href: '/settings', icon: Settings }]
-    : navigation
+  const items = [
+    ...navigation,
+    ...(profile.role === 'admin' || profile.role === 'super_admin'
+      ? [{ label: 'Settings', href: '/settings', icon: Settings }]
+      : []),
+    ...(profile.role === 'super_admin'
+      ? [{ label: 'Archive History', href: '/archive', icon: Archive }]
+      : []),
+  ]
 
   return (
     <>

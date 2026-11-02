@@ -38,8 +38,9 @@ export default function ApplicationDetailPage() {
   const fetchApplication = async () => {
     const { data, error } = await supabase
       .from('applications')
-      .select('*, borrowers(*)')
+      .select('*, borrowers!applications_borrower_id_fkey(*)')
       .eq('id', params.id)
+      .is('archived_at', null)
       .single()
 
     if (error) {
@@ -100,6 +101,7 @@ export default function ApplicationDetailPage() {
       .select('id, full_name')
       .eq('phone', app.borrowers.phone)
       .neq('id', app.borrower_id)
+      .is('archived_at', null)
 
     if (duplicatePhone && duplicatePhone.length > 0) {
       results.push({
@@ -114,6 +116,7 @@ export default function ApplicationDetailPage() {
         .select('id, full_name')
         .eq('id_number', app.borrowers.id_number)
         .neq('id', app.borrower_id)
+        .is('archived_at', null)
 
       if (duplicateId && duplicateId.length > 0) {
         results.push({

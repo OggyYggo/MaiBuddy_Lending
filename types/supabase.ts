@@ -105,6 +105,8 @@ export interface Database {
           created_by: string | null
           created_at: string
           updated_at: string
+          archived_at: string | null
+          archived_by: string | null
         }
         Insert: {
           id?: string
@@ -120,6 +122,8 @@ export interface Database {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+          archived_at?: string | null
+          archived_by?: string | null
         }
         Update: {
           id?: string
@@ -135,6 +139,8 @@ export interface Database {
           created_by?: string | null
           created_at?: string
           updated_at?: string
+          archived_at?: string | null
+          archived_by?: string | null
         }
       }
       documents: {
@@ -189,6 +195,9 @@ export interface Database {
           rate_override_reason: string | null
           submission_source: 'admin' | 'online'
           possible_duplicate: boolean
+          archived_at: string | null
+          archived_by: string | null
+          archive_parent_borrower_id: string | null
         }
         Insert: {
           id?: string
@@ -209,6 +218,9 @@ export interface Database {
           rate_override_reason?: string | null
           submission_source?: 'admin' | 'online'
           possible_duplicate?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
+          archive_parent_borrower_id?: string | null
         }
         Update: {
           id?: string
@@ -229,6 +241,9 @@ export interface Database {
           rate_override_reason?: string | null
           submission_source?: 'admin' | 'online'
           possible_duplicate?: boolean
+          archived_at?: string | null
+          archived_by?: string | null
+          archive_parent_borrower_id?: string | null
         }
       }
       loans: {
@@ -452,6 +467,22 @@ export interface Database {
       }
     }
     Functions: {
+      archive_borrower_records: {
+        Args: { p_borrower_id: string }
+        Returns: undefined
+      }
+      restore_borrower_records: {
+        Args: { p_borrower_id: string }
+        Returns: undefined
+      }
+      archive_application_record: {
+        Args: { p_application_id: string }
+        Returns: undefined
+      }
+      restore_application_record: {
+        Args: { p_application_id: string }
+        Returns: undefined
+      }
       submit_public_application: {
         Args: {
           p_full_name: string

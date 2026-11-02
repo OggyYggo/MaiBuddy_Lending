@@ -69,7 +69,7 @@ export default function DashboardPage() {
         agingBucketsData,
         collectionPayments,
       ] = await Promise.all([
-        supabase.from('borrowers').select('id', { count: 'exact', head: true }),
+        supabase.from('borrowers').select('id', { count: 'exact', head: true }).is('archived_at', null),
         supabase.from('v_active_loans').select('*').single(),
         supabase.from('v_outstanding_principal').select('*').single(),
         supabase.from('v_overdue_loans').select('*').single(),
