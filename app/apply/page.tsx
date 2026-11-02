@@ -33,22 +33,31 @@ const initialForm: ApplicationForm = {
 }
 
 const today = new Date().toISOString().slice(0, 10)
+const STANDARD_MONTHLY_RATE = 0.05
 
 export default function PublicApplicationPage() {
   const [form, setForm] = useState(initialForm)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [reference, setReference] = useState('')
-  const [monthlyRate, setMonthlyRate] = useState(0.05)
 
   useEffect(() => {
-    fetch('/api/settings')
-      .then((response) => response.ok ? response.json() : null)
-      .then((settings) => {
-        const configuredRate = Number(settings?.monthly_rate)
-        if (Number.isFinite(configuredRate) && configuredRate >= 0) setMonthlyRate(configuredRate)
-      })
-      .catch((loadError) => console.error('Could not load the default interest rate:', loadError))
+    const params = new URLSearchParams(window.location.search)
+    const amount = params.get('amount')
+    const termMonths = params.get('term_months')
+    const repaymentStyle = params.get('repayment_style')
+    const parsedAmount = Number(amount)
+    const parsedTerm = Number(termMonths)
+    const validStyle = repaymentStyle === 'EQUAL_PRINCIPAL' || repaymentStyle === 'LUMP_SUM'
+
+    if (amount && Number.isFinite(parsedAmount) && parsedAmount > 0 && Number.isInteger(parsedTerm) && parsedTerm >= 1 && parsedTerm <= 120) {
+      setForm((current) => ({
+        ...current,
+        amount,
+        term_months: termMonths || '',
+        ...(validStyle ? { repayment_style: repaymentStyle as ApplicationForm['repayment_style'] } : {}),
+      }))
+    }
   }, [])
 
   const handleChange = <K extends keyof ApplicationForm>(field: K, value: ApplicationForm[K]) => {
@@ -94,7 +103,7 @@ export default function PublicApplicationPage() {
   const estimate = Number.isFinite(amount) && amount > 0 && Number.isInteger(termMonths) && termMonths > 0
     ? generateSchedule({
         principal: new Decimal(amount),
-        rate: new Decimal(monthlyRate),
+        rate: new Decimal(STANDARD_MONTHLY_RATE),
         months: termMonths,
         style: form.repayment_style,
         startDate: new Date(),
@@ -186,8 +195,8 @@ export default function PublicApplicationPage() {
                   </p>
                   <p className="mt-2 text-xs leading-5 text-slate-600">
                     {form.repayment_style === 'LUMP_SUM'
-                      ? `One payment after ${termMonths} months, based on a ${(monthlyRate * 100).toFixed(2)}% monthly interest rate.`
-                      : `Estimated using a ${(monthlyRate * 100).toFixed(2)}% monthly interest rate. Installment payments may decrease over the term as the principal balance falls.`}
+                      ? `One payment after ${termMonths} months, based on the standard ${(STANDARD_MONTHLY_RATE * 100).toFixed(0)}% monthly interest rate.`
+                      : `Estimated using the standard ${(STANDARD_MONTHLY_RATE * 100).toFixed(0)}% monthly interest rate. Installment payments may decrease over the term as the principal balance falls.`}
                     {' '}The final terms and payment amount are subject to review.
                   </p>
                 </div>
