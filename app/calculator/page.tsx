@@ -153,7 +153,7 @@ export default function CalculatorPage() {
             {schedule.length > 0 ? (
               <div className="min-w-0 max-w-full overflow-hidden rounded-3xl border border-slate-200/80 bg-white p-4 shadow-[0_18px_55px_-30px_rgba(15,23,42,0.24)] sm:p-6">
                 <div className="mb-5 flex items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">Your estimate</p><h2 className="mt-1 text-base font-semibold text-slate-900 md:text-lg">Payment schedule</h2></div><span className="rounded-full bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700">{termMonths} months</span></div>
-                <div className="w-full max-w-full overflow-x-auto">
+                <div className="w-full max-w-full overflow-x-auto rounded-xl">
                   <table className="w-full min-w-[600px] divide-y divide-gray-200">
                     <thead className="bg-slate-50">
                       <tr>
@@ -163,7 +163,7 @@ export default function CalculatorPage() {
                         <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:px-4 md:py-3">
                           Due Date
                         </th>
-                        <th className="hidden px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 sm:table-cell md:px-4 md:py-3">
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:px-4 md:py-3">
                           Principal
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:px-4 md:py-3">
@@ -172,7 +172,7 @@ export default function CalculatorPage() {
                         <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:px-4 md:py-3">
                           Total
                         </th>
-                        <th className="hidden px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:table-cell md:px-4 md:py-3">
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 md:px-4 md:py-3">
                           Balance
                         </th>
                       </tr>
@@ -184,7 +184,7 @@ export default function CalculatorPage() {
                           <td className="px-3 py-2 text-sm text-gray-800 md:px-4 md:py-3">
                             {new Date(item.dueDate).toLocaleDateString()}
                           </td>
-                          <td className="hidden px-3 py-2 text-sm text-gray-800 sm:table-cell md:px-4 md:py-3">
+                          <td className="px-3 py-2 text-sm text-gray-800 md:px-4 md:py-3">
                             ₱{item.principalDue.toLocaleString()}
                           </td>
                           <td className="px-3 py-2 text-sm font-medium text-indigo-700 md:px-4 md:py-3">
@@ -193,7 +193,7 @@ export default function CalculatorPage() {
                           <td className="px-3 py-2 text-sm font-semibold text-gray-900 md:px-4 md:py-3">
                             ₱{item.totalDue.toLocaleString()}
                           </td>
-                          <td className="hidden px-3 py-2 text-sm text-gray-700 md:table-cell md:px-4 md:py-3">
+                          <td className="px-3 py-2 text-sm text-gray-700 md:px-4 md:py-3">
                             ₱{item.balanceAfter.toLocaleString()}
                           </td>
                         </tr>
