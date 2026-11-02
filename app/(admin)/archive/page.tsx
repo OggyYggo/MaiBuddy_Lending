@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import type { Database } from '@/types/supabase'
+import { Swal, showSweetAlert, showSweetToast } from '@/lib/sweet-alert'
 
 type Borrower = Database['public']['Tables']['borrowers']['Row']
 type ArchivedApplication = {
@@ -55,7 +56,7 @@ export default function ArchivePage() {
       setRecords([])
     } else {
       setError('')
-      setRecords(data || [])
+      setRecords((data || []) as Borrower[])
     }
 
     const { data: archivedApplications, error: applicationError } = await supabase
@@ -97,6 +98,54 @@ export default function ArchivePage() {
     await fetchArchivedRecords()
   }
 
+  const handlePermanentlyDeleteBorrower = async (borrower: Borrower) => {
+    const confirmation = await Swal.fire({
+      icon: 'warning',
+      title: 'Permanently delete archived borrower?',
+      text: `This permanently removes ${borrower.full_name} and their archived applications. This cannot be undone. Existing loans, financial history, or uploaded documents prevent deletion.`,
+      showCancelButton: true,
+      confirmButtonText: 'Delete permanently',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
+    })
+    if (!confirmation.isConfirmed) return
+
+    const { error: deleteError } = await supabase.rpc('permanently_delete_archived_borrower', {
+      p_borrower_id: borrower.id,
+    })
+    if (deleteError) {
+      void showSweetAlert('error', 'Could not permanently delete borrower', deleteError.message)
+      return
+    }
+
+    await fetchArchivedRecords()
+    void showSweetToast('success', 'Archived borrower permanently deleted')
+  }
+
+  const handlePermanentlyDeleteApplication = async (application: ArchivedApplication) => {
+    const confirmation = await Swal.fire({
+      icon: 'warning',
+      title: 'Permanently delete archived application?',
+      text: 'This permanently removes the archived application. This cannot be undone. Existing loans, financial history, or uploaded documents prevent deletion.',
+      showCancelButton: true,
+      confirmButtonText: 'Delete permanently',
+      cancelButtonText: 'Cancel',
+      confirmButtonColor: '#dc2626',
+    })
+    if (!confirmation.isConfirmed) return
+
+    const { error: deleteError } = await supabase.rpc('permanently_delete_archived_application', {
+      p_application_id: application.id,
+    })
+    if (deleteError) {
+      void showSweetAlert('error', 'Could not permanently delete application', deleteError.message)
+      return
+    }
+
+    await fetchArchivedRecords()
+    void showSweetToast('success', 'Archived application permanently deleted')
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -124,7 +173,7 @@ export default function ArchivePage() {
                   <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">Borrower</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">Contact</th>
                   <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">Archived</th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase text-slate-500">Action</th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold uppercase text-slate-500">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -140,6 +189,13 @@ export default function ArchivePage() {
                         className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                       >
                         Restore
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handlePermanentlyDeleteBorrower(record)}
+                        className="ml-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+                      >
+                        Delete permanently
                       </button>
                     </td>
                   </tr>
@@ -169,7 +225,7 @@ export default function ArchivePage() {
                     <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">Amount</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">Status</th>
                     <th className="px-5 py-3 text-left text-xs font-semibold uppercase text-slate-500">Archived</th>
-                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase text-slate-500">Action</th>
+                    <th className="px-5 py-3 text-right text-xs font-semibold uppercase text-slate-500">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -186,6 +242,13 @@ export default function ArchivePage() {
                           className="rounded-md bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
                         >
                           Restore
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePermanentlyDeleteApplication(application)}
+                          className="ml-2 rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+                        >
+                          Delete permanently
                         </button>
                       </td>
                     </tr>
