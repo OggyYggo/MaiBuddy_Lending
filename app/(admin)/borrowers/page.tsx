@@ -133,7 +133,7 @@ export default function BorrowersPage() {
     const confirmation = await Swal.fire({
       icon: 'warning',
       title: 'Archive borrower records?',
-      html: `<strong>${borrower.full_name}</strong> and their applications will be hidden from regular work lists. Loans and payment history will be preserved. A super admin can restore the archived records from Archive History.`,
+      text: `${borrower.full_name} and their applications will be hidden from regular work lists. Loans and payment history will be preserved. A super admin can restore the archived records from Archive History.`,
       showCancelButton: true,
       confirmButtonText: 'Archive records',
       cancelButtonText: 'Cancel',
