@@ -55,11 +55,22 @@ The **Dashboard** summarizes operational metrics, upcoming dues, and overdue agi
 
 ## 8. Borrower records and deletion
 
-**Borrowers** is the directory for borrower profiles and contact details. Staff can add and edit profiles. The website checks for linked applications and loans before allowing a borrower deletion, because those links preserve application and financial history. Deleting a loan can also cascade to dependent payment, schedule, ledger, penalty, or collection-note records according to the database foreign keys. Treat deletion as a destructive operation and verify the intended borrower and linked records first.
+**Borrowers** is the directory for borrower profiles and contact details. Staff can add and edit profiles. Only an active super admin can delete a borrower, and linked applications or loans prevent deletion to preserve financial history. Deletions of borrowers, in-progress applications, and collection notes save the deleted row in the audit log. Loans and money history have no direct delete permission.
 
 ## 9. Settings and audit history
 
-Admins can change general lending settings and loan limits, and manage staff profiles and roles. Loan officers do not have the Settings navigation item. The **Audit Log** provides a record of supported administrative actions. Some actions write audit entries while others are tracked through payments, ledger entries, or database logs.
+Admins can change general lending settings and loan limits, and manage staff status. Only a super admin can assign staff roles or delete the supported records. Loan officers do not have the Settings navigation item. The **Audit Log** includes snapshots for supported deletions and role changes. Some other actions are tracked through payments, ledger entries, or database logs.
+
+To bootstrap the first super admin, apply the `20261102120000_super_admin_controls.sql` migration, then promote a trusted active staff profile from the Supabase SQL editor using its known account email:
+
+```sql
+UPDATE public.profiles AS p
+SET role = 'super_admin', updated_at = NOW()
+FROM auth.users AS u
+WHERE p.id = u.id AND u.email = 'trusted-admin@example.com';
+```
+
+After that, active super admins can assign roles from **Settings → Staff Management**. Keep at least one active super admin; the database prevents removing the last one.
 
 ## 10. Main website routes
 

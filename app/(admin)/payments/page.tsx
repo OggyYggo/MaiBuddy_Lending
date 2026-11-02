@@ -425,8 +425,21 @@ export default function PaymentsPage() {
 
     if (error) {
       const errorMessage = formatSupabaseError(error)
-      console.error(`Error posting pending payment: ${errorMessage}`)
-      void showSweetAlert('error', 'Could not post payment', errorMessage)
+      if (
+        error.code === 'P0001'
+        && error.message?.includes('Principal payment exceeds the remaining principal balance')
+      ) {
+        await fetchLoans()
+        await fetchPayments()
+        void showSweetAlert(
+          'error',
+          'Principal balance changed',
+          'This pending payment is greater than the loan’s remaining principal. The latest balance has been refreshed. Edit the payment to the remaining amount or void it.',
+        )
+      } else {
+        console.error(`Error posting pending payment: ${errorMessage}`)
+        void showSweetAlert('error', 'Could not post payment', errorMessage)
+      }
     } else {
       void showSweetToast('success', `${formatPaymentType(payment.payment_type)} payment posted to the loan ledger`)
       setCurrentPage(1)

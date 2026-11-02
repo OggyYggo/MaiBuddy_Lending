@@ -77,7 +77,7 @@ export default function LoanDetailPage() {
         console.error('Error checking PDF export permission:', error)
         return
       }
-      setCanExport(profile?.role === 'admin')
+      setCanExport(profile?.role === 'admin' || profile?.role === 'super_admin')
     }
 
     void loadExportPermission()

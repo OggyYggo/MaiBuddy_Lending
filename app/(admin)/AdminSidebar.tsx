@@ -33,7 +33,7 @@ const navigation = [
 export default function AdminSidebar({ profile }: { profile: any }) {
   const [isOpen, setIsOpen] = useState(false)
   const pathname = usePathname()
-  const items = profile.role === 'admin'
+  const items = profile.role === 'admin' || profile.role === 'super_admin'
     ? [...navigation, { label: 'Settings', href: '/settings', icon: Settings }]
     : navigation
 

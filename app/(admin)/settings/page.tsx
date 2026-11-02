@@ -11,6 +11,7 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'general' | 'limits' | 'staff'>('general')
   const [settings, setSettings] = useState<Setting[]>([])
   const [profiles, setProfiles] = useState<Profile[]>([])
+  const [currentRole, setCurrentRole] = useState<Profile['role'] | null>(null)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
@@ -19,12 +20,17 @@ export default function SettingsPage() {
   const [newStaff, setNewStaff] = useState({
     email: '',
     full_name: '',
-    role: 'loan_officer' as 'admin' | 'loan_officer',
+    role: 'loan_officer' as Profile['role'],
   })
 
   useEffect(() => {
     fetchSettings()
     fetchProfiles()
+    supabase.auth.getUser().then(async ({ data: { user } }) => {
+      if (!user) return
+      const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+      setCurrentRole(data?.role ?? null)
+    })
   }, [])
 
   const fetchSettings = async () => {
@@ -86,14 +92,21 @@ export default function SettingsPage() {
 
   const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault()
+    const response = await fetch('/api/staff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newStaff),
+    })
+    const result = await response.json().catch(() => null)
+    if (!response.ok) {
+      alert(result?.error || 'Could not invite staff member.')
+      return
+    }
 
-    // This would typically involve Supabase Auth to create the user
-    // For now, we'll just show a message
-    alert(
-      'To add a new staff member, please use the Supabase dashboard to create a new user, then they will appear here. In production, this would be done through a server action with admin privileges.'
-    )
+    alert('Invitation email sent successfully.')
     setShowAddStaff(false)
     setNewStaff({ email: '', full_name: '', role: 'loan_officer' })
+    fetchProfiles()
   }
 
   const handleToggleStaffStatus = async (profileId: string, currentStatus: string) => {
@@ -128,6 +141,27 @@ export default function SettingsPage() {
     } else {
       fetchProfiles()
     }
+  }
+
+  const handleRoleChange = async (profile: Profile, role: Profile['role']) => {
+    if (profile.role === role) return
+    if (!confirm(`Change ${profile.full_name}'s role to ${role.replace('_', ' ')}?`)) return
+    const { data: { user } } = await supabase.auth.getUser()
+    const { error } = await supabase.from('profiles').update({ role, updated_at: new Date().toISOString() }).eq('id', profile.id)
+    if (error) {
+      alert(`Could not change role: ${error.message}`)
+      return
+    }
+    const { error: auditError } = await supabase.from('audit_logs').insert({
+      actor_id: user?.id,
+      action: 'role_changed',
+      entity: 'profiles',
+      entity_id: profile.id,
+      before_data: { role: profile.role },
+      after_data: { role },
+    })
+    if (auditError) console.error('Role changed but audit entry could not be saved:', auditError)
+    fetchProfiles()
   }
 
   const getSettingLabel = (key: string) => {
@@ -278,12 +312,14 @@ export default function SettingsPage() {
             <div className="space-y-6">
               <div className="flex justify-between items-center">
                 <h2 className="text-lg font-semibold text-gray-900">Staff Management</h2>
-                <button
-                  onClick={() => setShowAddStaff(true)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                >
-                  Add Staff Member
-                </button>
+                {currentRole === 'super_admin' && (
+                  <button
+                    onClick={() => setShowAddStaff(true)}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  >
+                    Add Staff Member
+                  </button>
+                )}
               </div>
 
               {showAddStaff && (
@@ -328,6 +364,7 @@ export default function SettingsPage() {
                       >
                         <option value="loan_officer">Loan Officer</option>
                         <option value="admin">Admin</option>
+                        <option value="super_admin">Super Admin</option>
                       </select>
                     </div>
 
@@ -378,7 +415,18 @@ export default function SettingsPage() {
                           {profile.full_name}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm capitalize text-gray-900">
-                          {profile.role.replace('_', ' ')}
+                          {currentRole === 'super_admin' ? (
+                            <select
+                              aria-label={`Role for ${profile.full_name}`}
+                              value={profile.role}
+                              onChange={(event) => handleRoleChange(profile, event.target.value as Profile['role'])}
+                              className="rounded border border-gray-300 px-2 py-1 capitalize"
+                            >
+                              <option value="loan_officer">Loan Officer</option>
+                              <option value="admin">Admin</option>
+                              <option value="super_admin">Super Admin</option>
+                            </select>
+                          ) : profile.role.replace('_', ' ')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span
