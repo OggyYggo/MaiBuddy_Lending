@@ -15,7 +15,8 @@ export default function LoginPage() {
   useEffect(() => {
     const error = new URLSearchParams(window.location.search).get('error')
     if (error === 'account_not_active') {
-      setError('Your login succeeded, but this account has no active admin profile. Ask an administrator to activate your profile in Supabase.')
+      setError('This account is inactive and has been signed out. Ask an administrator to reactivate it before signing in again.')
+      createClient().auth.signOut({ scope: 'local' })
     }
   }, [])
 

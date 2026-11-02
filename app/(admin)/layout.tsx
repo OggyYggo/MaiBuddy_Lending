@@ -1,6 +1,7 @@
 import { createClient } from '@/utils/supabase/server'
 import { redirect } from 'next/navigation'
 import AdminSidebar from './AdminSidebar'
+import SessionExpiryGuard from './SessionExpiryGuard'
 
 export default async function AdminLayout({
   children,
@@ -29,6 +30,7 @@ export default async function AdminLayout({
 
   return (
     <div className="flex h-screen bg-[#f6f8fc] text-slate-800">
+      <SessionExpiryGuard />
       <AdminSidebar profile={profile} />
 
       {/* Main content */}

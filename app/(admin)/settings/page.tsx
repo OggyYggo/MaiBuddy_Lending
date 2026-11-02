@@ -112,16 +112,23 @@ export default function SettingsPage() {
   const handleToggleStaffStatus = async (profileId: string, currentStatus: string) => {
     const newStatus = currentStatus === 'active' ? 'inactive' : 'active'
 
-    const { error } = await supabase
+    const { data: updatedProfile, error } = await supabase
       .from('profiles')
       .update({ status: newStatus, updated_at: new Date().toISOString() })
       .eq('id', profileId)
+      .select('id, status')
+      .maybeSingle()
 
     if (error) {
       console.error('Error updating profile status:', error)
-      alert('Failed to update status')
+      alert(`Failed to update status: ${error.message}`)
     } else {
-      fetchProfiles()
+      if (!updatedProfile || updatedProfile.status !== newStatus) {
+        alert('The account status was not changed. Check that your admin account has permission to manage staff.')
+        fetchProfiles()
+        return
+      }
+      await fetchProfiles()
     }
   }
 
