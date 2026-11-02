@@ -102,13 +102,16 @@ export default function PublicApplicationPage() {
     : []
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 text-slate-800 sm:py-12">
-      <div className="mx-auto max-w-3xl">
-        <header className="mb-6 text-center">
-          <h1 className="mt-2 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">Loan Application</h1>
-          <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">
-            Complete this form to send your loan request to our team for review. Submitting an application does not guarantee approval.
-          </p>
+    <main className="min-h-screen bg-[#f4f7fb] px-4 py-6 text-slate-800 sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-6xl">
+        <header className="relative mb-7 overflow-hidden rounded-3xl bg-slate-950 px-6 py-8 text-white shadow-xl shadow-slate-900/10 sm:px-10 sm:py-10">
+          <div className="absolute -right-12 -top-24 h-72 w-72 rounded-full bg-indigo-500/20 blur-3xl" />
+          <div className="relative">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-indigo-300">Lending</p>
+            <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">Let’s get you moving.</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">Tell us a little about yourself and what you need. Our team will review your request and get back to you.</p>
+            <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200"><span className="h-2 w-2 rounded-full bg-emerald-400" /> Application review by our lending team</div>
+          </div>
         </header>
 
         {reference ? (
@@ -120,11 +123,12 @@ export default function PublicApplicationPage() {
             <p className="mt-4 text-xs text-slate-500">You may close this page. Please Contact if you have questions about your application.</p>
           </section>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-8">
+          <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
+          <form onSubmit={handleSubmit} className="space-y-7 rounded-3xl border border-slate-200/80 bg-white p-5 shadow-[0_18px_55px_-30px_rgba(15,23,42,0.24)] sm:p-8 lg:p-9">
             {error && <div role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div>}
 
             <section>
-              <h2 className="text-base font-semibold text-slate-900">Your details</h2>
+              <div className="mb-4 flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-sm font-bold text-indigo-700">01</span><div><h2 className="text-base font-semibold text-slate-900">Your details</h2><p className="mt-0.5 text-xs text-slate-500">A few basics so we can get in touch.</p></div></div>
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className={`${labelClass} sm:col-span-2`}>
                   Full name
@@ -149,8 +153,8 @@ export default function PublicApplicationPage() {
               </div>
             </section>
 
-            <section className="border-t border-slate-100 pt-6">
-              <h2 className="text-base font-semibold text-slate-900">Loan request</h2>
+            <section className="border-t border-slate-100 pt-7">
+              <div className="mb-4 flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-sm font-bold text-indigo-700">02</span><div><h2 className="text-base font-semibold text-slate-900">Loan request</h2><p className="mt-0.5 text-xs text-slate-500">Share the amount and repayment plan you have in mind.</p></div></div>
               <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className={labelClass}>
                   Amount requested (₱)
@@ -208,6 +212,22 @@ export default function PublicApplicationPage() {
             </button>
             <p className="text-center text-xs text-slate-400">Your request will be marked In Review until an administrator checks it.</p>
           </form>
+          <aside className="space-y-4 lg:sticky lg:top-6">
+            <section className="rounded-3xl border border-slate-200/80 bg-white p-6 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-600">What happens next</p>
+              <ol className="mt-5 space-y-5">
+                <li className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">1</span><div><p className="text-sm font-semibold text-slate-800">We receive your request</p><p className="mt-1 text-xs leading-5 text-slate-500">Your details are sent to our lending team.</p></div></li>
+                <li className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">2</span><div><p className="text-sm font-semibold text-slate-800">Our team reviews it</p><p className="mt-1 text-xs leading-5 text-slate-500">We’ll assess the information and follow up with you.</p></div></li>
+                <li className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-700">3</span><div><p className="text-sm font-semibold text-slate-800">You receive an update</p><p className="mt-1 text-xs leading-5 text-slate-500">Keep your application reference for questions.</p></div></li>
+              </ol>
+            </section>
+            <section className="rounded-3xl border border-indigo-100 bg-indigo-50/70 p-6">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white text-indigo-700 shadow-sm" aria-hidden="true">⌑</div>
+              <h2 className="mt-4 text-sm font-semibold text-slate-900">Your information matters</h2>
+              <p className="mt-2 text-xs leading-5 text-slate-600">Please provide accurate details so our team can review your request. Never share passwords or online banking credentials.</p>
+            </section>
+          </aside>
+          </div>
         )}
       </div>
     </main>
